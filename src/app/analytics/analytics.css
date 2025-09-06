@@ -219,6 +219,11 @@
     background-color: var(--primary);
     border-radius: 4px 4px 0 0;
     position: relative;
+    transition: filter 0.2s ease;
+}
+
+.chart-bar:hover {
+    filter: brightness(1.2);
 }
 
 .chart-labels {
