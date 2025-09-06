@@ -1,21 +1,16 @@
+
 import { Button } from "@/components/ui/button";
 import { AppLogoIcon } from "@/components/icons/app-logo-icon";
-import { useToast } from "@/hooks/use-toast";
 
 type WelcomeScreenProps = {
   onNext: () => void;
+  onTeacherClick: () => void;
 };
 
-export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
-  const { toast } = useToast();
-
-  const handleTeacherClick = () => {
-    toast({
-      title: "教員向け機能",
-      description: "教員向けの機能は現在準備中です。",
-    });
-  };
-
+export default function WelcomeScreen({
+  onNext,
+  onTeacherClick,
+}: WelcomeScreenProps) {
   return (
     <div className="flex size-full flex-col p-8 text-center opacity-100 transition-opacity duration-300">
       <div className="flex-1">
@@ -41,7 +36,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
         </Button>
         <Button
           className="w-full"
-          onClick={handleTeacherClick}
+          onClick={onTeacherClick}
           variant="ghost"
         >
           教員はこちら

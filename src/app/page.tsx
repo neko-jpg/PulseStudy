@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -5,9 +6,10 @@ import WelcomeScreen from "@/components/onboarding/welcome-screen";
 import SlidesScreen from "@/components/onboarding/slides-screen";
 import PrivacyScreen from "@/components/onboarding/privacy-screen";
 import AuthScreen from "@/components/onboarding/auth-screen";
+import TeacherAuthScreen from "@/components/onboarding/teacher-auth-screen";
 import { Card } from "@/components/ui/card";
 
-type Screen = "welcome" | "slides" | "privacy" | "auth";
+type Screen = "welcome" | "slides" | "privacy" | "auth" | "teacherAuth";
 
 export default function OnboardingPage() {
   const [screen, setScreen] = useState<Screen>("welcome");
@@ -15,15 +17,27 @@ export default function OnboardingPage() {
   const renderScreen = () => {
     switch (screen) {
       case "welcome":
-        return <WelcomeScreen onNext={() => setScreen("slides")} />;
+        return (
+          <WelcomeScreen
+            onNext={() => setScreen("slides")}
+            onTeacherClick={() => setScreen("teacherAuth")}
+          />
+        );
       case "slides":
         return <SlidesScreen onNext={() => setScreen("privacy")} />;
       case "privacy":
         return <PrivacyScreen onNext={() => setScreen("auth")} />;
       case "auth":
         return <AuthScreen />;
+      case "teacherAuth":
+        return <TeacherAuthScreen onBack={() => setScreen("welcome")} />;
       default:
-        return <WelcomeScreen onNext={() => setScreen("slides")} />;
+        return (
+          <WelcomeScreen
+            onNext={() => setScreen("slides")}
+            onTeacherClick={() => setScreen("teacherAuth")}
+          />
+        );
     }
   };
 
