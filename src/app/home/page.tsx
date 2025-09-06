@@ -15,7 +15,7 @@ import {
   Trophy,
   Zap,
   Home,
-  Book,
+  BookOpen,
   Target,
   Users,
 } from 'lucide-react';
@@ -243,7 +243,7 @@ export default function HomePage() {
           <span>ホーム</span>
         </Link>
         <Link href="#" className="nav-item">
-          <Book className="nav-icon" />
+          <BookOpen className="nav-icon" />
           <span>学習</span>
         </Link>
         <Link href="/challenge" className="nav-item">
@@ -254,7 +254,7 @@ export default function HomePage() {
           <Users className="nav-icon" />
           <span>コラボ</span>
         </Link>
-        <Link href="#" className="nav-item">
+        <Link href="/analytics" className="nav-item">
           <BarChart className="nav-icon" />
           <span>分析</span>
         </Link>

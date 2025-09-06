@@ -200,7 +200,7 @@ export default function ChallengePage() {
           <Users className="nav-icon" />
           <span>コラボ</span>
         </Link>
-        <Link href="#" className="nav-item">
+        <Link href="/analytics" className="nav-item">
           <BarChart className="nav-icon" />
           <span>分析</span>
         </Link>

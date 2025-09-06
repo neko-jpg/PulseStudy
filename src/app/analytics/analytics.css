@@ -1,0 +1,443 @@
+
+:root {
+    --primary: #4361ee;
+    --secondary: #3a0ca3;
+    --accent: #f72585;
+    --success: #4cc9f0;
+    --correct: #4ade80;
+    --incorrect: #f87171;
+    --warning: #fca311;
+    --light: #f8f9fa;
+    --dark: #212529;
+    --gray: #6c757d;
+    --light-gray: #e9ecef;
+    --medium-gray: #ced4da;
+}
+
+.analytics-container {
+    background-color: #f5f7fb;
+    color: var(--dark);
+    line-height: 1.6;
+    padding-bottom: 80px;
+}
+
+.container-inner {
+    max-width: 100%;
+    padding: 0 16px;
+}
+
+/* ヘッダー */
+.analytics-header {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    padding: 20px 16px;
+    border-radius: 0 0 16px 16px;
+    margin-bottom: 20px;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.period-selector {
+    display: flex;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 4px;
+}
+
+.period-button {
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.period-button.active {
+    background-color: white;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.analytics-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.analytics-subtitle {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* サマリーカード */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.summary-card {
+    background-color: white;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.card-title {
+    font-size: 14px;
+    color: var(--gray);
+    margin-bottom: 8px;
+}
+
+.card-value {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.card-change {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.positive {
+    color: var(--correct);
+}
+
+.negative {
+    color: var(--incorrect);
+}
+
+/* ヒートマップ */
+.heatmap-section {
+    background-color: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.heatmap-container {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.heatmap-day {
+    height: 32px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.heatmap-cell {
+    height: 32px;
+    border-radius: 4px;
+    position: relative;
+    cursor: pointer;
+}
+
+.heatmap-cell[data-level="0"] { background-color: #ebedf0; }
+.heatmap-cell[data-level="1"] { background-color: #c6e48b; }
+.heatmap-cell[data-level="2"] { background-color: #7bc96f; }
+.heatmap-cell[data-level="3"] { background-color: #239a3b; }
+.heatmap-cell[data-level="4"] { background-color: #196127; }
+
+.heatmap-tooltip {
+    position: absolute;
+    background-color: var(--dark);
+    color: white;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    display: none;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.heatmap-cell:hover .heatmap-tooltip {
+    display: block;
+}
+
+/* 集中度グラフ */
+.focus-section {
+    background-color: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.chart-container {
+    height: 200px;
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.chart-line {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.chart-bar {
+    flex: 1;
+    background-color: var(--primary);
+    border-radius: 4px 4px 0 0;
+    position: relative;
+}
+
+.chart-labels {
+    display: flex;
+    justify-content: space-around;
+    font-size: 12px;
+    color: var(--gray);
+}
+
+/* 科目分析 */
+.subjects-section {
+    background-color: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.subject-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 12px;
+}
+
+.subject-name {
+    width: 80px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.subject-progress {
+    flex: 1;
+    height: 8px;
+    background-color: var(--light-gray);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.subject-progress-fill {
+    height: 100%;
+    border-radius: 4px;
+}
+
+.subject-percentage {
+    width: 50px;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* 改善ポイント */
+.improvement-section {
+    background-color: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.improvement-card {
+    background-color: var(--light);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.improvement-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.improvement-desc {
+    font-size: 14px;
+    color: var(--gray);
+    margin-bottom: 12px;
+}
+
+.improvement-action {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/* スケジュール提案 */
+.schedule-section {
+    background-color: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.schedule-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.schedule-day {
+    text-align: center;
+    padding: 8px;
+    border-radius: 8px;
+    background-color: var(--light);
+    cursor: pointer;
+}
+
+.schedule-day.active {
+    background-color: var(--primary);
+    color: white;
+}
+
+.schedule-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.schedule-slot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background-color: var(--light);
+    border-radius: 8px;
+}
+
+.slot-time {
+    width: 80px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.slot-subject {
+    flex: 1;
+    font-size: 14px;
+}
+
+.slot-action {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: var(--gray);
+}
+
+/* 共有セクション */
+.share-section {
+    background-color: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.share-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.share-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background-color: var(--light);
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+}
+
+.share-icon {
+    font-size: 24px;
+    color: var(--primary);
+}
+
+.share-text {
+    font-size: 14px;
+}
+
+/* ボトムナビゲーション */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    display: flex;
+    justify-content: space-around;
+    padding: 12px 0;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--gray);
+    font-size: 12px;
+    text-decoration: none;
+}
+
+.nav-item.active {
+    color: var(--primary);
+}
+
+.nav-icon {
+    font-size: 20px;
+}
