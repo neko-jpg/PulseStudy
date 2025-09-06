@@ -270,6 +270,16 @@
   cursor: pointer;
 }
 
+.whiteboard-zoom-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background-color: white;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
 .problem-container {
   padding: 20px;
   border-bottom: 1px solid var(--light-gray);
@@ -499,6 +509,30 @@
   100% { transform: scale(1); }
 }
 
+/* 拡大表示 */
+.room-main.zoomed-in .participants-sidebar,
+.room-main.zoomed-in .problem-container,
+.room-main.zoomed-in .chat-container,
+.room-main.zoomed-in .room-footer {
+  display: none;
+}
+
+.room-main.zoomed-in .room-content {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  background-color: white;
+  padding-top: 65px; /* header height */
+}
+
+.room-main.zoomed-in .whiteboard-container {
+  height: 100%;
+}
+
+
 /* レスポンシブ調整 */
 @media (max-width: 960px) {
   .participants-sidebar {
@@ -510,6 +544,9 @@
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
   }
   .participants-sidebar.open {
+    left: 0;
+  }
+  .room-main.zoomed-in .room-content {
     left: 0;
   }
 }

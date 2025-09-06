@@ -26,12 +26,16 @@ import {
   Users,
   BarChart,
   User,
+  Maximize,
+  Minimize,
 } from 'lucide-react';
 import './collab.css';
+import { cn } from '@/lib/utils';
 
 export default function CollabPage() {
   const whiteboardRef = useRef<HTMLCanvasElement>(null);
   const [isHandRaised, setIsHandRaised] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   useEffect(() => {
     const canvas = whiteboardRef.current;
@@ -120,7 +124,7 @@ export default function CollabPage() {
           </div>
         </header>
 
-        <div className="room-main">
+        <div className={cn('room-main', isZoomed && 'zoomed-in')}>
           <aside className="participants-sidebar">
             <div className="sidebar-header">
               <span>参加者</span>
@@ -238,6 +242,14 @@ export default function CollabPage() {
                     style={{ backgroundColor: '#4cc9f0' }}
                   ></div>
                 </div>
+              </div>
+               <div className="whiteboard-zoom-controls">
+                <button
+                  className="tool-button"
+                  onClick={() => setIsZoomed(!isZoomed)}
+                >
+                  {isZoomed ? <Minimize size={18} /> : <Maximize size={18} />}
+                </button>
               </div>
             </div>
 
