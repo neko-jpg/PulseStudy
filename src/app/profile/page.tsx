@@ -93,6 +93,17 @@ export default function ProfilePage() {
               </select>
             </div>
             <div className="setting-item">
+              <label htmlFor="school-goal" className="setting-name">
+                志望校
+              </label>
+              <input
+                id="school-goal"
+                type="text"
+                className="setting-input"
+                placeholder="例: 東京大学"
+              />
+            </div>
+            <div className="setting-item">
               <label htmlFor="goal-select" className="setting-name">
                 学習目標
               </label>
