@@ -29,6 +29,8 @@ import {
   Maximize,
   Minimize,
   MoreHorizontal,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import './collab.css';
 import { cn } from '@/lib/utils';
@@ -37,6 +39,7 @@ export default function CollabPage() {
   const whiteboardRef = useRef<HTMLCanvasElement>(null);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [isParticipantsSidebarOpen, setIsParticipantsSidebarOpen] = useState(true);
 
   // For chat resizing
   const chatRef = useRef<HTMLDivElement>(null);
@@ -168,10 +171,23 @@ export default function CollabPage() {
         </header>
 
         <div className={cn('room-main', isZoomed && 'zoomed-in')}>
-          <aside className="participants-sidebar">
+           <aside className={cn('participants-sidebar', isParticipantsSidebarOpen ? 'open' : 'closed')}>
             <div className="sidebar-header">
               <span>参加者</span>
-              <span className="participants-count">3人</span>
+               <div className="flex items-center">
+                <span className="participants-count">3人</span>
+                <button
+                  className="control-button"
+                  onClick={() => setIsParticipantsSidebarOpen(!isParticipantsSidebarOpen)}
+                  style={{ backgroundColor: 'transparent' }}
+                >
+                  {isParticipantsSidebarOpen ? (
+                    <ChevronLeft size={16} />
+                  ) : (
+                    <ChevronRight size={16} />
+                  )}
+                </button>
+              </div>
             </div>
             <div className="participants-list">
               <div className="participant-card active">

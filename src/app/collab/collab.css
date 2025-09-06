@@ -79,7 +79,24 @@
   border-right: 1px solid var(--light-gray);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, padding 0.3s ease;
+  flex-shrink: 0;
+}
+
+.participants-sidebar.closed {
+    width: 50px;
+    overflow: hidden;
+}
+
+.participants-sidebar.closed .participants-list,
+.participants-sidebar.closed .sidebar-header > span,
+.participants-sidebar.closed .participants-count {
+    display: none;
+}
+
+.participants-sidebar.closed .sidebar-header {
+    justify-content: center;
+    padding: 16px 0;
 }
 
 .sidebar-header {
@@ -555,16 +572,21 @@
 
 /* レスポンシブ調整 */
 @media (max-width: 960px) {
-  .participants-sidebar {
+  .participants-sidebar.open {
     position: fixed;
-    left: -280px;
+    left: 0;
     top: 0;
     height: 100%;
     z-index: 100;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
   }
-  .participants-sidebar.open {
+   .participants-sidebar.closed {
+    position: fixed;
     left: 0;
+    top: 65px; /* header height */
+    height: auto;
+    z-index: 100;
+    border-radius: 0 8px 8px 0;
   }
   .room-main.zoomed-in .room-content {
     left: 0;
@@ -577,8 +599,13 @@
   }
   .participants-sidebar {
       width: 250px;
-      left: -250px;
   }
+   .participants-sidebar.open {
+    left: -250px;
+   }
+   .participants-sidebar.open.show {
+    left: 0;
+   }
    .footer-button span {
     display: none;
   }
