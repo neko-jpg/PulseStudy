@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
+import { AppSidebar } from '@/components/app-sidebar';
 
 export const metadata: Metadata = {
   title: 'PulseStudy - 学びの、その先へ。',
@@ -32,7 +33,10 @@ export default function RootLayout({
         />
       </head>
       <body className={cn('font-body antialiased')}>
-        {children}
+        <div className="flex">
+          <AppSidebar />
+          <main className="flex-1">{children}</main>
+        </div>
         <Toaster />
       </body>
     </html>

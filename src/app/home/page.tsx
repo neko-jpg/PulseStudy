@@ -240,32 +240,6 @@ export default function HomePage() {
         </section>
       </div>
 
-      <nav className="bottom-nav">
-        <Link href="/home" className="nav-item active">
-          <Home className="nav-icon" />
-          <span>ホーム</span>
-        </Link>
-        <Link href="/learn-top" className="nav-item">
-          <BookOpen className="nav-icon" />
-          <span>学習</span>
-        </Link>
-        <Link href="/challenge" className="nav-item">
-          <Target className="nav-icon" />
-          <span>チャレンジ</span>
-        </Link>
-        <Link href="/collab" className="nav-item">
-          <Users className="nav-icon" />
-          <span>コラボ</span>
-        </Link>
-        <Link href="/analytics" className="nav-item">
-          <BarChart className="nav-icon" />
-          <span>分析</span>
-        </Link>
-        <Link href="/profile" className="nav-item">
-          <User className="nav-icon" />
-          <span>プロフィール</span>
-        </Link>
-      </nav>
     </div>
   );
 }
