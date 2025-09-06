@@ -272,7 +272,7 @@ export default function AnalyticsPage() {
           <Home className="nav-icon" />
           <span>ホーム</span>
         </Link>
-        <Link href="#" className="nav-item">
+        <Link href="/learn" className="nav-item">
           <BookOpen className="nav-icon" />
           <span>学習</span>
         </Link>
