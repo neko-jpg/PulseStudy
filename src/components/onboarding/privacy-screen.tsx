@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -42,7 +43,7 @@ export default function PrivacyScreen({ onNext }: PrivacyScreenProps) {
 
   return (
     <div className="flex size-full flex-col p-8 opacity-100 transition-opacity duration-300">
-      <div className="mb-6">
+      <div className="mb-6 shrink-0">
         <h1 className="font-headline text-2xl font-bold leading-tight">
           学習の様子を、
           <br />
@@ -55,7 +56,7 @@ export default function PrivacyScreen({ onNext }: PrivacyScreenProps) {
         </p>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4">
+      <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {options.map((option) => (
           <Card
             key={option.id}
@@ -82,7 +83,7 @@ export default function PrivacyScreen({ onNext }: PrivacyScreenProps) {
       </div>
 
       <Button
-        className="mt-6 w-full"
+        className="mt-auto w-full shrink-0"
         onClick={onNext}
         disabled={!selectedOption}
         variant="default"
