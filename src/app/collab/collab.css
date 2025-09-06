@@ -529,6 +529,7 @@
   gap: 8px;
   font-size: 14px;
   border: none;
+  transition: background-color 0.2s;
 }
 
 .button-secondary {
@@ -536,14 +537,26 @@
   color: var(--dark);
 }
 
+.button-secondary:hover {
+  background-color: var(--medium-gray);
+}
+
 .button-primary {
   background-color: var(--primary);
   color: white;
 }
 
+.button-primary:hover {
+  background-color: var(--secondary);
+}
+
 .button-accent {
   background-color: var(--accent);
   color: white;
+}
+
+.button-accent:hover {
+  filter: brightness(0.9);
 }
 
 .hand-raised {
