@@ -77,12 +77,16 @@ export default function ProfilePage() {
               <label htmlFor="grade-select" className="setting-name">
                 学年
               </label>
-              <select id="grade-select" className="setting-select">
+              <select
+                id="grade-select"
+                className="setting-select"
+                defaultValue="高校2年"
+              >
                 <option>中学1年</option>
                 <option>中学2年</option>
                 <option>中学3年</option>
                 <option>高校1年</option>
-                <option selected>高校2年</option>
+                <option>高校2年</option>
                 <option>高校3年</option>
                 <option>大学生</option>
                 <option>社会人</option>
@@ -92,10 +96,14 @@ export default function ProfilePage() {
               <label htmlFor="goal-select" className="setting-name">
                 学習目標
               </label>
-              <select id="goal-select" className="setting-select">
+              <select
+                id="goal-select"
+                className="setting-select"
+                defaultValue="45分"
+              >
                 <option>15分</option>
                 <option>30分</option>
-                <option selected>45分</option>
+                <option>45分</option>
                 <option>1時間</option>
                 <option>1.5時間</option>
                 <option>2時間</option>
