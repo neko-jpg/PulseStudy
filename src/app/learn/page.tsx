@@ -26,9 +26,7 @@ import './learn.css';
 export default function LearnPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedOption, setSelectedOption] = useState<HTMLElement | null>(
-    null
-  );
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showNextButton, setShowNextButton] = useState(false);
@@ -80,14 +78,10 @@ export default function LearnPage() {
     }
   };
 
-  const handleSelectOption = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    option: string
-  ) => {
-    const target = e.currentTarget;
+  const handleSelectOption = (option: string) => {
     if (selectedOption !== null) return;
 
-    setSelectedOption(target);
+    setSelectedOption(option);
     const correct = option === questions[currentStep - 1].answer;
     setIsCorrect(correct);
     setShowFeedback(true);
@@ -248,11 +242,11 @@ export default function LearnPage() {
                 <button
                   key={index}
                   className={`option ${
-                    selectedOption === event?.target && isCorrect === true
+                    selectedOption === option && isCorrect === true
                       ? 'correct'
                       : ''
                   } ${
-                    selectedOption === event?.target && isCorrect === false
+                    selectedOption === option && isCorrect === false
                       ? 'incorrect'
                       : ''
                   } ${
@@ -262,7 +256,7 @@ export default function LearnPage() {
                       ? 'correct'
                       : ''
                   }`}
-                  onClick={(e) => handleSelectOption(e, option)}
+                  onClick={() => handleSelectOption(option)}
                   disabled={showFeedback}
                 >
                   {option}
