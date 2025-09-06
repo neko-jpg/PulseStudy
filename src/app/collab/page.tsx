@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Mic,
@@ -28,6 +28,7 @@ import {
   User,
   Maximize,
   Minimize,
+  MoreHorizontal,
 } from 'lucide-react';
 import './collab.css';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,48 @@ export default function CollabPage() {
   const whiteboardRef = useRef<HTMLCanvasElement>(null);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+
+  // For chat resizing
+  const chatRef = useRef<HTMLDivElement>(null);
+  const [chatHeight, setChatHeight] = useState(250);
+  const isResizing = useRef(false);
+  const lastY = useRef(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    isResizing.current = true;
+    lastY.current = e.clientY;
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const handleMouseUp = useCallback(() => {
+    isResizing.current = false;
+    document.body.style.cursor = 'default';
+    document.body.style.userSelect = 'auto';
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing.current) return;
+    const delta = lastY.current - e.clientY;
+    lastY.current = e.clientY;
+    setChatHeight((prevHeight) => {
+        const newHeight = prevHeight + delta;
+        if (newHeight >= 100 && newHeight <= 500) { // min/max height
+            return newHeight;
+        }
+        return prevHeight;
+    });
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
 
   useEffect(() => {
     const canvas = whiteboardRef.current;
@@ -253,7 +296,10 @@ export default function CollabPage() {
               </div>
             </div>
 
-            <div className="chat-container">
+            <div ref={chatRef} className="chat-container" style={{ height: `${chatHeight}px` }}>
+              <div className="chat-resizer" onMouseDown={handleMouseDown}>
+                <div className="resize-handle"></div>
+              </div>
               <div className="chat-header">
                 <div className="chat-tabs">
                   <div className="chat-tab active">チャット</div>

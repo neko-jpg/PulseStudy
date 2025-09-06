@@ -312,13 +312,33 @@
 
 /* チャットエリア */
 .chat-container {
-  height: 250px;
   display: flex;
   flex-direction: column;
   background-color: white;
   border-top: 1px solid var(--light-gray);
   flex-shrink: 0;
+  position: relative;
 }
+
+.chat-resizer {
+  position: absolute;
+  top: -5px;
+  left: 0;
+  right: 0;
+  height: 10px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resize-handle {
+  width: 40px;
+  height: 4px;
+  background-color: var(--medium-gray);
+  border-radius: 2px;
+}
+
 
 .chat-header {
   padding: 12px 16px;
