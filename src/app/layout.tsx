@@ -1,19 +1,20 @@
-import type { Metadata } from 'next';
+
+'use client';
+
+import { usePathname } from 'next/navigation';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { AppSidebar } from '@/components/app-sidebar';
-
-export const metadata: Metadata = {
-  title: 'PulseStudy - 学びの、その先へ。',
-  description: '5分のスナック学習とAIコーチで、「続かない」を「楽しい」に変えよう。',
-};
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+  const showSidebar = pathname !== '/';
+
   return (
     <html lang="ja">
       <head>
@@ -31,12 +32,18 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap"
           rel="stylesheet"
         />
+        <title>PulseStudy - 学びの、その先へ。</title>
+        <meta name="description" content="5分のスナック学習とAIコーチで、「続かない」を「楽しい」に変えよう。" />
       </head>
       <body className={cn('font-body antialiased')}>
-        <div className="flex">
-          <AppSidebar />
-          <main className="flex-1 transition-all duration-300">{children}</main>
-        </div>
+        {showSidebar ? (
+          <div className="flex">
+            <AppSidebar />
+            <main className="flex-1 transition-all duration-300">{children}</main>
+          </div>
+        ) : (
+          <main>{children}</main>
+        )}
         <Toaster />
       </body>
     </html>
