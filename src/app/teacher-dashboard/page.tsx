@@ -274,41 +274,6 @@ export default function TeacherDashboardPage() {
               曜日別参加率
             </div>
           </section>
-
-          <section className="intervention-section">
-            <div className="section-header">
-              <div className="section-title">介入が必要な生徒</div>
-              <div className="section-link">すべて表示</div>
-            </div>
-            <div className="intervention-list">
-              <div className="intervention-item">
-                <div className="intervention-avatar">S</div>
-                <div className="intervention-info">
-                  <div className="intervention-name">さくらさん</div>
-                  <div className="intervention-reason">
-                    数学の進捗が45%と低い、集中度が低下
-                  </div>
-                </div>
-                <button className="intervention-action">連絡</button>
-              </div>
-              <div className="intervention-item">
-                <div className="intervention-avatar">Y</div>
-                <div className="intervention-info">
-                  <div className="intervention-name">優子さん</div>
-                  <div className="intervention-reason">3日間連続で学習していない</div>
-                </div>
-                <button className="intervention-action">連絡</button>
-              </div>
-              <div className="intervention-item">
-                <div className="intervention-avatar">T</div>
-                <div className="intervention-info">
-                  <div className="intervention-name">太郎さん</div>
-                  <div className="intervention-reason">課題の未提出が3件ある</div>
-                </div>
-                <button className="intervention-action">連絡</button>
-              </div>
-            </div>
-          </section>
         </div>
       </div>
     </>
