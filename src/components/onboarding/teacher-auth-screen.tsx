@@ -17,7 +17,7 @@ export default function TeacherAuthScreen({ onBack }: TeacherAuthScreenProps) {
 
   const handleAuthClick = (provider: string) => {
     if (provider === "Guest") {
-      router.push("/home");
+      router.push("/teacher-dashboard");
       return;
     }
     toast({
