@@ -16,6 +16,7 @@ import {
   Home,
   Target,
   BarChart,
+  User,
 } from 'lucide-react';
 import './challenge.css';
 
@@ -67,13 +68,17 @@ export default function ChallengePage() {
               デイリー
             </div>
             <div
-              className={`tab-button ${activeTab === 'weekly' ? 'active' : ''}`}
+              className={`tab-button ${
+                activeTab === 'weekly' ? 'active' : ''
+              }`}
               onClick={() => switchTab('weekly')}
             >
               ウィークリー
             </div>
             <div
-              className={`tab-button ${activeTab === 'quests' ? 'active' : ''}`}
+              className={`tab-button ${
+                activeTab === 'quests' ? 'active' : ''
+              }`}
               onClick={() => switchTab('quests')}
             >
               クエスト
@@ -153,9 +158,7 @@ export default function ChallengePage() {
                   すべて見る
                 </Link>
               </div>
-              <div className="challenge-cards">
-                {/* Weekly Challenge Cards */}
-              </div>
+              <div className="challenge-cards">{/* Weekly Challenge Cards */}</div>
             </section>
           )}
 
@@ -203,6 +206,10 @@ export default function ChallengePage() {
         <Link href="/analytics" className="nav-item">
           <BarChart className="nav-icon" />
           <span>分析</span>
+        </Link>
+        <Link href="/profile" className="nav-item">
+          <User className="nav-icon" />
+          <span>プロフィール</span>
         </Link>
       </nav>
 

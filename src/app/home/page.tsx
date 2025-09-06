@@ -18,6 +18,7 @@ import {
   BookOpen,
   Target,
   Users,
+  User,
 } from 'lucide-react';
 import './home.css';
 
@@ -50,9 +51,11 @@ export default function HomePage() {
       <header className="home-header">
         <div className="header-top">
           <div className="user-info">
-            <Avatar>
-              <AvatarFallback>A</AvatarFallback>
-            </Avatar>
+            <Link href="/profile">
+              <Avatar>
+                <AvatarFallback>A</AvatarFallback>
+              </Avatar>
+            </Link>
             <div>
               <div>葵さん</div>
               <div className="streak">
@@ -257,6 +260,10 @@ export default function HomePage() {
         <Link href="/analytics" className="nav-item">
           <BarChart className="nav-icon" />
           <span>分析</span>
+        </Link>
+        <Link href="/profile" className="nav-item">
+          <User className="nav-icon" />
+          <span>プロフィール</span>
         </Link>
       </nav>
     </div>

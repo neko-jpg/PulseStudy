@@ -288,6 +288,10 @@ export default function AnalyticsPage() {
           <BarChart className="nav-icon" />
           <span>分析</span>
         </Link>
+        <Link href="/profile" className="nav-item">
+          <User className="nav-icon" />
+          <span>プロフィール</span>
+        </Link>
       </nav>
     </>
   );
