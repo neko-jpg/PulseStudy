@@ -26,9 +26,6 @@ export default function TeacherDashboardPage() {
             </div>
             <div className="header-actions">
               <button className="header-button">
-                <BarChart2 size={16} /> レポート
-              </button>
-              <button className="header-button">
                 <Settings size={16} /> 設定
               </button>
             </div>
