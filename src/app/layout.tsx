@@ -52,7 +52,9 @@ export default function RootLayout({
             ) : (
             <main>{children}</main>
             )
-        ) : null}
+        ) : (
+          <main>{children}</main>
+        )}
         {isClient && <Toaster />}
       </body>
     </html>
