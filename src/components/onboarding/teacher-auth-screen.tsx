@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GoogleIcon } from "../icons/google-icon";
 import { useToast } from "@/hooks/use-toast";
@@ -12,8 +13,13 @@ type TeacherAuthScreenProps = {
 
 export default function TeacherAuthScreen({ onBack }: TeacherAuthScreenProps) {
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleAuthClick = (provider: string) => {
+    if (provider === "Guest") {
+      router.push("/home");
+      return;
+    }
     toast({
       title: "認証機能",
       description: `${provider}での認証は現在実装されていません。`,
@@ -49,6 +55,9 @@ export default function TeacherAuthScreen({ onBack }: TeacherAuthScreenProps) {
         >
           <Mail className="mr-2 size-5" />
           メールアドレスで続行
+        </Button>
+        <Button variant="ghost" onClick={() => handleAuthClick("Guest")}>
+          ゲストとして試す
         </Button>
       </div>
 
