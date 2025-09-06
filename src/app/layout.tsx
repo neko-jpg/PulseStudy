@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const showSidebar = pathname !== '/';
+  const showSidebar = !['/', '/teacher-dashboard'].includes(pathname);
 
   return (
     <html lang="ja">
