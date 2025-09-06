@@ -35,7 +35,7 @@ export default function RootLayout({
       <body className={cn('font-body antialiased')}>
         <div className="flex">
           <AppSidebar />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 transition-all duration-300">{children}</main>
         </div>
         <Toaster />
       </body>
