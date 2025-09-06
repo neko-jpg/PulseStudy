@@ -21,7 +21,7 @@ const subjects = [
 ];
 
 export default function AuthScreen() {
-  const [timeValue, setTimeValue] = useState(20);
+  const [timeValue, setTimeValue] = useState(60);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -35,6 +35,11 @@ export default function AuthScreen() {
       description: `${provider}での認証は現在実装されていません。`,
     });
   };
+
+  const formatTime = (minutes: number) => {
+    if (minutes < 60) return `${minutes}分`;
+    return `${minutes / 60}時間`;
+  }
 
   return (
     <div className="flex size-full flex-col p-8 opacity-100 transition-opacity duration-300">
@@ -51,14 +56,20 @@ export default function AuthScreen() {
           <Label htmlFor="time-slider">目標の学習時間（1日）</Label>
           <Slider
             id="time-slider"
-            min={10}
-            max={60}
-            step={10}
+            min={0}
+            max={180}
+            step={60}
             value={[timeValue]}
             onValueChange={(value) => setTimeValue(value[0])}
           />
-          <div className="text-center font-medium text-primary-foreground/80">
-            {timeValue}分
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>0時間</span>
+            <span>1時間</span>
+            <span>2時間</span>
+            <span>3時間</span>
+          </div>
+          <div className="pt-2 text-center font-medium text-primary-foreground/80">
+            {formatTime(timeValue)}
           </div>
         </div>
 
