@@ -53,7 +53,7 @@ export default function RootLayout({
             <main>{children}</main>
             )
         ) : null}
-        <Toaster />
+        {isClient && <Toaster />}
       </body>
     </html>
   );
