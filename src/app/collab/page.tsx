@@ -174,7 +174,7 @@ export default function CollabPage() {
            <aside className={cn('participants-sidebar', isParticipantsSidebarOpen ? 'open' : 'closed')}>
             <div className="sidebar-header">
               <span>参加者</span>
-               <div className="flex items-center">
+               <div className="flex items-center gap-2">
                 <span className="participants-count">3人</span>
                 <button
                   className="control-button"
