@@ -196,7 +196,7 @@ export default function ChallengePage() {
           <Target className="nav-icon" />
           <span>チャレンジ</span>
         </Link>
-        <Link href="#" className="nav-item">
+        <Link href="/collab" className="nav-item">
           <Users className="nav-icon" />
           <span>コラボ</span>
         </Link>

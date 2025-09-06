@@ -162,7 +162,7 @@ export default function HomePage() {
         <section className="challenge-section">
           <div className="section-title">
             <span>チャレンジ</span>
-            <Link href="#" className="see-all">
+            <Link href="/challenge" className="see-all">
               すべて見る
             </Link>
           </div>
@@ -250,7 +250,7 @@ export default function HomePage() {
           <Target className="nav-icon" />
           <span>チャレンジ</span>
         </Link>
-        <Link href="#" className="nav-item">
+        <Link href="/collab" className="nav-item">
           <Users className="nav-icon" />
           <span>コラボ</span>
         </Link>
