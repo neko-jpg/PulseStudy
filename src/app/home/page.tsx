@@ -238,7 +238,7 @@ export default function HomePage() {
       </div>
 
       <nav className="bottom-nav">
-        <Link href="#" className="nav-item active">
+        <Link href="/home" className="nav-item active">
           <Home className="nav-icon" />
           <span>ホーム</span>
         </Link>
@@ -246,7 +246,7 @@ export default function HomePage() {
           <Book className="nav-icon" />
           <span>学習</span>
         </Link>
-        <Link href="#" className="nav-item">
+        <Link href="/challenge" className="nav-item">
           <Target className="nav-icon" />
           <span>チャレンジ</span>
         </Link>

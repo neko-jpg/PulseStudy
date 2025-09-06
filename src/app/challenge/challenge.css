@@ -1,0 +1,622 @@
+
+:root {
+    --primary: #4361ee;
+    --secondary: #3a0ca3;
+    --accent: #f72585;
+    --success: #4cc9f0;
+    --correct: #4ade80;
+    --incorrect: #f87171;
+    --warning: #fca311;
+    --light: #f8f9fa;
+    --dark: #212529;
+    --gray: #6c757d;
+    --light-gray: #e9ecef;
+    --medium-gray: #ced4da;
+}
+
+.challenge-container {
+    background-color: #f5f7fb;
+    color: var(--dark);
+    line-height: 1.6;
+    padding-bottom: 80px;
+}
+
+.container-inner {
+    max-width: 100%;
+    padding: 0 16px;
+}
+
+/* ヘッダー */
+.challenges-header {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    padding: 20px 16px;
+    border-radius: 0 0 16px 16px;
+    margin-bottom: 20px;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.points-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: rgba(255, 255, 255, 0.2);
+    padding: 8px 16px;
+    border-radius: 20px;
+}
+
+.points-count {
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.challenges-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.challenges-subtitle {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* タブナビゲーション */
+.tabs-navigation {
+    display: flex;
+    background-color: white;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.tab-button {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background-color: transparent;
+}
+
+.tab-button.active {
+    background-color: var(--primary);
+    color: white;
+}
+
+/* デイリーチャレンジ */
+.daily-challenge {
+    background-color: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.daily-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: var(--accent);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 0 16px 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.daily-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.daily-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.daily-timer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: var(--gray);
+}
+
+.daily-progress {
+    height: 6px;
+    background-color: var(--light-gray);
+    border-radius: 3px;
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.daily-progress-fill {
+    height: 100%;
+    background-color: var(--accent);
+    border-radius: 3px;
+    width: 60%;
+}
+
+.daily-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.daily-task {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background-color: var(--light);
+    border-radius: 12px;
+}
+
+.task-checkbox {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--medium-gray);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.task-checkbox.checked {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.task-info {
+    flex: 1;
+}
+
+.task-name {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.task-reward {
+    font-size: 12px;
+    color: var(--gray);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.daily-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.action-button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-align: center;
+}
+
+.button-secondary {
+    background-color: var(--light-gray);
+    color: var(--dark);
+}
+
+.button-primary {
+    background-color: var(--primary);
+    color: white;
+}
+
+/* ウィークリーチャレンジ */
+.weekly-section {
+    margin-bottom: 24px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.section-link {
+    font-size: 14px;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.challenge-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.challenge-card {
+    background-color: white;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    position: relative;
+}
+
+.challenge-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    margin-bottom: 12px;
+}
+
+.challenge-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.challenge-desc {
+    font-size: 12px;
+    color: var(--gray);
+    margin-bottom: 12px;
+}
+
+.challenge-progress {
+    height: 4px;
+    background-color: var(--light-gray);
+    border-radius: 2px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.challenge-progress-fill {
+    height: 100%;
+    background-color: var(--primary);
+    border-radius: 2px;
+}
+
+.challenge-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.challenge-reward {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.challenge-status {
+    font-size: 12px;
+    color: var(--gray);
+}
+
+/* スペシャルクエスト */
+.quests-section {
+    margin-bottom: 24px;
+}
+
+.quest-card {
+    background-color: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin-bottom: 16px;
+    position: relative;
+}
+
+.quest-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.badge-new {
+    background-color: var(--accent);
+    color: white;
+}
+
+.badge-popular {
+    background-color: var(--warning);
+    color: white;
+}
+
+.quest-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.quest-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background-color: var(--light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.quest-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.quest-desc {
+    font-size: 14px;
+    color: var(--gray);
+    margin-bottom: 16px;
+}
+
+.quest-objectives {
+    margin-bottom: 16px;
+}
+
+.objective {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.objective-check {
+    color: var(--correct);
+}
+
+.objective-pending {
+    color: var(--gray);
+}
+
+.quest-reward {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background-color: var(--light);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.reward-text {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.quest-action {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-align: center;
+}
+
+/* ランキング */
+.ranking-section {
+    margin-bottom: 24px;
+}
+
+.ranking-card {
+    background-color: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.ranking-tabs {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--light-gray);
+    padding-bottom: 12px;
+}
+
+.ranking-tab {
+    font-size: 14px;
+    color: var(--gray);
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.ranking-tab.active {
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary);
+}
+
+.ranking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ranking-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.rank-number {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background-color: var(--light-gray);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.rank-top {
+    background-color: var(--warning);
+    color: white;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+}
+
+.user-info {
+    flex: 1;
+}
+
+.user-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.user-score {
+    font-size: 12px;
+    color: var(--gray);
+}
+
+.user-points {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+/* ボトムナビゲーション */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    display: flex;
+    justify-content: space-around;
+    padding: 12px 0;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--gray);
+    font-size: 12px;
+    text-decoration: none;
+}
+
+.nav-item.active {
+    color: var(--primary);
+}
+
+.nav-icon {
+    font-size: 20px;
+}
+
+/* 報酬モーダル */
+.reward-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    display: none;
+}
+
+.reward-modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 16px;
+    padding: 24px;
+    width: 85%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.modal-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.modal-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.modal-text {
+    margin-bottom: 20px;
+    color: var(--gray);
+}
+
+.modal-points {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 20px;
+}
+
+.modal-button {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background-color: var(--primary);
+    color: white;
+    width: 100%;
+}
