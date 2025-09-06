@@ -158,15 +158,17 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <section className="danger-zone">
-            <h2 className="danger-header">
-              <AlertTriangle size={20} />
-              危険ゾーン
-            </h2>
-            <Button variant="destructive" className="w-full justify-between">
-              アカウントを削除
-              <ChevronRight />
-            </Button>
+          <section className="settings-section">
+            <div className="setting-item">
+              <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-500 hover:bg-red-50">
+                ログアウト
+              </Button>
+            </div>
+             <div className="setting-item">
+              <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-500 hover:bg-red-50">
+                アカウントを削除
+              </Button>
+            </div>
           </section>
         </div>
       </div>

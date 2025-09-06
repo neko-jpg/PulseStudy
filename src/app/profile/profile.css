@@ -166,25 +166,6 @@
   color: var(--gray);
 }
 
-/* 危険ゾーン */
-.danger-zone {
-  border: 1px solid var(--incorrect);
-  background-color: rgba(248, 113, 113, 0.05);
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 24px;
-}
-
-.danger-header {
-  color: var(--incorrect);
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 /* ボトムナビゲーション */
 .bottom-nav {
   position: fixed;
