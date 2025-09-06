@@ -81,6 +81,8 @@
   flex-direction: column;
   transition: width 0.3s ease, padding 0.3s ease;
   flex-shrink: 0;
+  border: 1px solid var(--light-gray);
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
 .participants-sidebar.closed {
@@ -219,6 +221,15 @@
   color: var(--dark);
   flex-shrink: 0;
 }
+
+.sidebar-header .control-button {
+  background-color: transparent;
+  border: 1px solid var(--medium-gray);
+}
+.sidebar-header .control-button:hover {
+  background-color: var(--light-gray);
+}
+
 
 /* メインルームエリア */
 .room-content {

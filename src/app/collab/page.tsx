@@ -179,7 +179,6 @@ export default function CollabPage() {
                 <button
                   className="control-button"
                   onClick={() => setIsParticipantsSidebarOpen(!isParticipantsSidebarOpen)}
-                  style={{ backgroundColor: 'transparent' }}
                 >
                   {isParticipantsSidebarOpen ? (
                     <ChevronLeft size={16} />
