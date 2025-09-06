@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ArrowLeft,
   Timer,
@@ -13,13 +14,21 @@ import {
   Lightbulb,
   ThumbsUp,
   Pause,
+  Home,
+  BookOpen,
+  Target,
+  Users,
+  BarChart,
+  User,
 } from 'lucide-react';
 import './learn.css';
 
 export default function LearnPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedOption, setSelectedOption] = useState<HTMLElement | null>(null);
+  const [selectedOption, setSelectedOption] = useState<HTMLElement | null>(
+    null
+  );
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showNextButton, setShowNextButton] = useState(false);
@@ -110,6 +119,7 @@ export default function LearnPage() {
   };
 
   return (
+    <>
     <div className="module-container">
       <header className="module-header">
         <div className="header-left">
@@ -320,5 +330,32 @@ export default function LearnPage() {
         </div>
       )}
     </div>
+     <nav className="bottom-nav">
+        <Link href="/home" className="nav-item">
+          <Home className="nav-icon" />
+          <span>ホーム</span>
+        </Link>
+        <Link href="/learn-top" className="nav-item active">
+          <BookOpen className="nav-icon" />
+          <span>学習</span>
+        </Link>
+        <Link href="/challenge" className="nav-item">
+          <Target className="nav-icon" />
+          <span>チャレンジ</span>
+        </Link>
+        <Link href="/collab" className="nav-item">
+          <Users className="nav-icon" />
+          <span>コラボ</span>
+        </Link>
+        <Link href="/analytics" className="nav-item">
+          <BarChart className="nav-icon" />
+          <span>分析</span>
+        </Link>
+        <Link href="/profile" className="nav-item">
+          <User className="nav-icon" />
+          <span>プロフィール</span>
+        </Link>
+      </nav>
+      </>
   );
 }
