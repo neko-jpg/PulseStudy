@@ -42,8 +42,9 @@ export default function HomePage() {
   }, []);
 
   const startLearning = (moduleId: number) => {
+    // In a real implementation, you would navigate to the learning screen here.
+    // For now, we'll just show an alert.
     alert(`モジュール ${moduleId} を開始します！`);
-    // 実際の実装ではここで学習画面に遷移する
   };
 
   return (
@@ -105,12 +106,9 @@ export default function HomePage() {
                   <BarChart className="h-4 w-4" /> 3問
                 </div>
               </div>
-              <Button
-                className="start-button"
-                onClick={() => startLearning(1)}
-              >
-                続きから始める
-              </Button>
+              <Link href="/learn">
+                <Button className="start-button">続きから始める</Button>
+              </Link>
             </CardContent>
           </Card>
 
