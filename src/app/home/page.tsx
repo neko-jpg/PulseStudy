@@ -65,7 +65,9 @@ export default function HomePage() {
             </div>
           </div>
           <div className="notification">
-            <Bell />
+            <Link href="/notifications">
+              <Bell />
+            </Link>
           </div>
         </div>
         <div className="greeting">
