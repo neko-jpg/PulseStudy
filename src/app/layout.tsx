@@ -1,12 +1,11 @@
-
 'use client';
 
-import { usePathname } from 'next/navigation';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { AppSidebar } from '@/components/app-sidebar';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function RootLayout({
   children,
@@ -14,13 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  const showSidebar = isClient && !['/', '/teacher-dashboard'].includes(pathname);
+  const showSidebar = !['/', '/teacher-dashboard'].includes(pathname);
 
   return (
     <html lang="ja">
@@ -43,19 +36,11 @@ export default function RootLayout({
         <meta name="description" content="5分のスナック学習とAIコーチで、「続かない」を「楽しい」に変えよう。" />
       </head>
       <body className={cn('font-body antialiased')}>
-        {isClient ? (
-            showSidebar ? (
-            <div className="flex">
-                <AppSidebar />
-                <main className="flex-1 transition-all duration-300">{children}</main>
-            </div>
-            ) : (
-            <main>{children}</main>
-            )
-        ) : (
-          <main>{children}</main>
-        )}
-        {isClient && <Toaster />}
+        <div className="flex">
+            {showSidebar && <AppSidebar />}
+            <main className="flex-1 transition-all duration-300">{children}</main>
+        </div>
+        <Toaster />
       </body>
     </html>
   );
