@@ -1,6 +1,8 @@
+
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -21,8 +23,13 @@ const subjects = [
 export default function AuthScreen() {
   const [timeValue, setTimeValue] = useState(20);
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleAuthClick = (provider: string) => {
+    if (provider === "Guest") {
+      router.push("/home");
+      return;
+    }
     toast({
       title: "認証機能",
       description: `${provider}での認証は現在実装されていません。`,
