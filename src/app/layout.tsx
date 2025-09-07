@@ -1,20 +1,13 @@
-'use client';
-
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
-import { AppSidebar } from '@/components/app-sidebar';
-import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { SidebarWrapper } from '@/components/sidebar-wrapper';
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const pathname = usePathname();
-  const showSidebar = !['/', '/teacher-dashboard'].includes(pathname);
-
   return (
     <html lang="ja">
       <head>
@@ -37,7 +30,7 @@ export default function RootLayout({
       </head>
       <body className={cn('font-body antialiased')}>
         <div className="flex">
-            {showSidebar && <AppSidebar />}
+            <SidebarWrapper />
             <main className="flex-1 transition-all duration-300">{children}</main>
         </div>
         <Toaster />
