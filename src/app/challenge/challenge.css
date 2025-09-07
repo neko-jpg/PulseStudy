@@ -1,21 +1,5 @@
-
-:root {
-    --primary: #4361ee;
-    --secondary: #3a0ca3;
-    --accent: #f72585;
-    --success: #4cc9f0;
-    --correct: #4ade80;
-    --incorrect: #f87171;
-    --warning: #fca311;
-    --light: #f8f9fa;
-    --dark: #212529;
-    --gray: #6c757d;
-    --light-gray: #e9ecef;
-    --medium-gray: #ced4da;
-}
-
-.challenge-container {
-    background-color: #f5f7fb;
+﻿.challenge-container {
+    background-color: hsl(var(--background));
     color: var(--dark);
     line-height: 1.6;
     padding-bottom: 80px;
@@ -26,9 +10,9 @@
     padding: 0 16px;
 }
 
-/* ヘッダー */
+
 .challenges-header {
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
     color: white;
     padding: 20px 16px;
     border-radius: 0 0 16px 16px;
@@ -67,10 +51,10 @@
     opacity: 0.9;
 }
 
-/* タブナビゲーション */
+
 .tabs-navigation {
     display: flex;
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 12px;
     padding: 4px;
     margin-bottom: 24px;
@@ -90,13 +74,13 @@
 }
 
 .tab-button.active {
-    background-color: var(--primary);
+    background-color: hsl(var(--primary));
     color: white;
 }
 
-/* デイリーチャレンジ */
+
 .daily-challenge {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 24px;
@@ -109,7 +93,7 @@
     position: absolute;
     top: 0;
     right: 0;
-    background-color: var(--accent);
+    background-color: hsl(var(--accent));
     color: white;
     padding: 8px 16px;
     border-radius: 0 16px 0 16px;
@@ -180,8 +164,8 @@
 }
 
 .task-checkbox.checked {
-    background-color: var(--primary);
-    border-color: var(--primary);
+    background-color: hsl(var(--primary));
+    border-color: hsl(var(--primary));
     color: white;
 }
 
@@ -224,11 +208,11 @@
 }
 
 .button-primary {
-    background-color: var(--primary);
+    background-color: hsl(var(--primary));
     color: white;
 }
 
-/* ウィークリーチャレンジ */
+
 .weekly-section {
     margin-bottom: 24px;
 }
@@ -247,7 +231,7 @@
 
 .section-link {
     font-size: 14px;
-    color: var(--primary);
+    color: hsl(var(--primary));
     text-decoration: none;
 }
 
@@ -258,7 +242,7 @@
 }
 
 .challenge-card {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 16px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
@@ -300,7 +284,7 @@
 
 .challenge-progress-fill {
     height: 100%;
-    background-color: var(--primary);
+    background-color: hsl(var(--primary));
     border-radius: 2px;
 }
 
@@ -313,7 +297,7 @@
 .challenge-reward {
     font-size: 12px;
     font-weight: 600;
-    color: var(--primary);
+    color: hsl(var(--primary));
     display: flex;
     align-items: center;
     gap: 4px;
@@ -324,13 +308,13 @@
     color: var(--gray);
 }
 
-/* スペシャルクエスト */
+
 .quests-section {
     margin-bottom: 24px;
 }
 
 .quest-card {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
@@ -432,13 +416,13 @@
     text-align: center;
 }
 
-/* ランキング */
+
 .ranking-section {
     margin-bottom: 24px;
 }
 
 .ranking-card {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
@@ -448,7 +432,7 @@
     display: flex;
     gap: 16px;
     margin-bottom: 16px;
-    border-bottom: 1px solid var(--light-gray);
+    border-bottom: 1px solid hsl(var(--border));
     padding-bottom: 12px;
 }
 
@@ -460,8 +444,8 @@
 }
 
 .ranking-tab.active {
-    color: var(--primary);
-    border-bottom: 2px solid var(--primary);
+    color: hsl(var(--primary));
+    border-bottom: 2px solid hsl(var(--primary));
 }
 
 .ranking-list {
@@ -524,42 +508,19 @@
 .user-points {
     font-size: 14px;
     font-weight: 600;
-    color: var(--primary);
+    color: hsl(var(--primary));
 }
 
-/* ボトムナビゲーション */
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background-color: white;
-    display: flex;
-    justify-content: space-around;
-    padding: 12px 0;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-    z-index: 50;
-}
 
-.nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    color: var(--gray);
-    font-size: 12px;
-    text-decoration: none;
-}
 
-.nav-item.active {
-    color: var(--primary);
-}
 
-.nav-icon {
-    font-size: 20px;
-}
 
-/* 報酬モーダル */
+
+
+
+
+
+
 .reward-modal {
     position: fixed;
     top: 0;
@@ -579,7 +540,7 @@
 }
 
 .modal-content {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 24px;
     width: 85%;
@@ -606,7 +567,7 @@
 .modal-points {
     font-size: 32px;
     font-weight: 700;
-    color: var(--primary);
+    color: hsl(var(--primary));
     margin-bottom: 20px;
 }
 
@@ -616,7 +577,9 @@
     font-weight: 600;
     cursor: pointer;
     border: none;
-    background-color: var(--primary);
+    background-color: hsl(var(--primary));
     color: white;
     width: 100%;
 }
+
+

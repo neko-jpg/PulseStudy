@@ -1,395 +1,377 @@
+﻿"use client"
 
-'use client';
+import { useEffect, useRef, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
+import { track } from '@/lib/analytics'
+import './collab.css'
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import Link from 'next/link';
-import {
-  Mic,
-  Video,
-  LogOut,
-  ThumbsUp,
-  Hand,
-  Pencil,
-  Circle,
-  Square,
-  Triangle,
-  Type,
-  Undo,
-  Clock,
-  ArrowRight,
-  Lightbulb,
-  Check,
-  RefreshCw,
-  Home,
-  BookOpen,
-  Target,
-  Users,
-  BarChart,
-  User,
-  Maximize,
-  Minimize,
-  MoreHorizontal,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
-import './collab.css';
-import { cn } from '@/lib/utils';
+type RoomState = { id: string; topic?: string; members: { id: string; name: string }[]; stamps: { like: number; ask: number; idea: number } }
+type QuizQA = { q: string; choices: string[] }
+function CollabInner() {
+  const router = useRouter()
+  const params = useSearchParams()
+  const { toast } = useToast()
 
-export default function CollabPage() {
-  const whiteboardRef = useRef<HTMLCanvasElement>(null);
-  const [isHandRaised, setIsHandRaised] = useState(false);
-  const [isZoomed, setIsZoomed] = useState(false);
-  const [isParticipantsSidebarOpen, setIsParticipantsSidebarOpen] = useState(true);
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [room, setRoom] = useState<RoomState | null>(null)
+  const [displayName, setDisplayName] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
-  // For chat resizing
-  const chatRef = useRef<HTMLDivElement>(null);
-  const [chatHeight, setChatHeight] = useState(250);
-  const isResizing = useRef(false);
-  const lastY = useRef(0);
+  // stamps
+  const [bursts, setBursts] = useState<{ id: number; type: 'like' | 'ask' | 'idea' }[]>([])
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    isResizing.current = true;
-    lastY.current = e.clientY;
-    document.body.style.cursor = 'ns-resize';
-    document.body.style.userSelect = 'none';
-  };
+  // quiz
+  const [quiz, setQuiz] = useState<QuizQA | null>(null)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [result, setResult] = useState<null | { correct: boolean }>(null)
+  const [countdown, setCountdown] = useState(0)
+  const timerRef = useRef<any>(null)
 
-  const handleMouseUp = useCallback(() => {
-    isResizing.current = false;
-    document.body.style.cursor = 'default';
-    document.body.style.userSelect = 'auto';
-  }, []);
+  // whiteboard
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const drawingRef = useRef<{ drawing: boolean; color: string; last?: { x: number; y: number } }>({ drawing: false, color: '#111827' })
+  const [penColor, setPenColor] = useState('#111827')
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizing.current) return;
-    const delta = lastY.current - e.clientY;
-    lastY.current = e.clientY;
-    setChatHeight((prevHeight) => {
-        const newHeight = prevHeight + delta;
-        if (newHeight >= 100 && newHeight <= 500) { // min/max height
-            return newHeight;
+  // chat
+  const [chatInput, setChatInput] = useState('')
+  const [messages, setMessages] = useState<Array<{ id: number; sender: string; text: string; kind: 'incoming'|'outgoing'|'system' }>>([
+    { id: 1, sender: 'system', text: 'ようこそ。スタンプやミニクイズで盛り上がろう！', kind: 'system' },
+  ])
+
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('displayName') || '' : ''
+    if (saved) setDisplayName(saved)
+  }, [])
+
+  // enter + poll
+  useEffect(() => {
+    let active = true
+    let pollTimer: any
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    async function enter() {
+      try {
+        setLoading(true); setError(null)
+        const roomParam = params.get('room')
+        const topic = params.get('topic') || undefined
+        let id = roomParam || ''
+        if (!roomParam || roomParam === 'new') {
+          const res = await fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic }) })
+          const js = await res.json(); id = js.id
+          track({ name: 'room_create', props: { id, topic } })
         }
-        return prevHeight;
-    });
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [handleMouseMove, handleMouseUp]);
-
-
-  useEffect(() => {
-    const canvas = whiteboardRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    function resizeCanvas() {
-      if (canvas) {
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
+        const name = displayName || 'ゲスト'
+        const j = await fetch('/api/rooms/' + id + '/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }), signal: controller.signal })
+        if (!j.ok) throw new Error('join failed')
+        track({ name: 'room_join', props: { id } })
+        if (!active) return
+        setRoom({ id, topic, members: [], stamps: { like: 0, ask: 0, idea: 0 } })
+        // poll state
+        let delay = 2000
+        async function loop() {
+          try {
+            const r = await fetch('/api/rooms/' + id + '/state', { cache: 'no-store' })
+            if (r.ok) { const js = await r.json(); setRoom(js); delay = 2000 } else { delay = Math.min(10000, delay * 1.5) }
+          } catch { delay = Math.min(10000, delay * 1.5) }
+          pollTimer = setTimeout(loop, delay)
+        }
+        loop()
+      } catch (e: any) {
+        if (!active) return
+        if (e?.name === 'AbortError') setError('timeout')
+        else setError('network')
+      } finally {
+        if (active) setLoading(false); clearTimeout(timeout)
       }
     }
+    enter()
+    return () => { active = false; clearTimeout(timeout); controller.abort(); clearTimeout(pollTimer) }
+  }, [params, displayName])
 
-    function startDrawing(e: MouseEvent) {
-      isDrawing = true;
-      [lastX, lastY] = [e.offsetX, e.offsetY];
+  // setup whiteboard canvas
+  useEffect(() => {
+    const c = canvasRef.current
+    if (!c) return
+    const parent = c.parentElement as HTMLElement
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1
+      c.width = parent.clientWidth * dpr
+      c.height = parent.clientHeight * dpr
+      const ctx = c.getContext('2d')!
+      ctx.scale(dpr, dpr)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, parent.clientWidth, parent.clientHeight)
     }
-
-    function draw(e: MouseEvent) {
-      if (!isDrawing || !ctx) return;
-
-      ctx.beginPath();
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#4361ee';
-
-      ctx.moveTo(lastX, lastY);
-      ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.stroke();
-
-      [lastX, lastY] = [e.offsetX, e.offsetY];
+    resize()
+    const getPos = (ev: MouseEvent | TouchEvent) => {
+      const rect = c.getBoundingClientRect()
+      const t = (ev as TouchEvent).touches && (ev as TouchEvent).touches[0]
+      const clientX = t ? t.clientX : (ev as MouseEvent).clientX
+      const clientY = t ? t.clientY : (ev as MouseEvent).clientY
+      return { x: clientX - rect.left, y: clientY - rect.top }
     }
-
-    function stopDrawing() {
-      isDrawing = false;
+    const onDown = (e: MouseEvent | TouchEvent) => { drawingRef.current.drawing = true; drawingRef.current.last = getPos(e) }
+    const onMove = (e: MouseEvent | TouchEvent) => {
+      if (!drawingRef.current.drawing) return
+      const ctx = c.getContext('2d')!
+      const { x, y } = getPos(e)
+      const last = drawingRef.current.last
+      if (!last) return
+      ctx.strokeStyle = drawingRef.current.color
+      ctx.lineWidth = 2
+      ctx.lineCap = 'round'
+      ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(x, y); ctx.stroke()
+      drawingRef.current.last = { x, y }
     }
-
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-
+    const onUp = () => { drawingRef.current.drawing = false; drawingRef.current.last = undefined }
+    window.addEventListener('resize', resize)
+    c.addEventListener('mousedown', onDown)
+    c.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    c.addEventListener('touchstart', onDown as any, { passive: true } as any)
+    c.addEventListener('touchmove', onMove as any, { passive: true } as any)
+    window.addEventListener('touchend', onUp)
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
-      canvas.removeEventListener('mousedown', startDrawing);
-      canvas.removeEventListener('mousemove', draw);
-      canvas.removeEventListener('mouseup', stopDrawing);
-      canvas.removeEventListener('mouseout', stopDrawing);
-    };
-  }, []);
+      window.removeEventListener('resize', resize)
+      c.removeEventListener('mousedown', onDown)
+      c.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      c.removeEventListener('touchstart', onDown as any)
+      c.removeEventListener('touchmove', onMove as any)
+      window.removeEventListener('touchend', onUp)
+    }
+  }, [])
 
-  const handleRaiseHand = () => {
-    setIsHandRaised(!isHandRaised);
-  };
+  useEffect(() => { drawingRef.current.color = penColor }, [penColor])
+
+  // shortcuts
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!room) return
+      if (e.key === '1') sendStamp('like')
+      if (e.key === '2') sendStamp('ask')
+      if (e.key === '3') sendStamp('idea')
+      if (e.key === 'q' || e.key === 'Q') startQuiz()
+      if (quiz && (e.key >= '1' && e.key <= '4')) setSelected(parseInt(e.key, 10) - 1)
+      if (quiz && e.key === 'Enter' && selected != null) submitAnswer()
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveTakeaway()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [room, quiz, selected])
+
+  async function sendStamp(type: 'like' | 'ask' | 'idea') {
+    if (!room) return
+    try {
+      await fetch('/api/rooms/' + room.id + '/stamp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type }) })
+      const bid = Date.now() + Math.floor(Math.random() * 1000)
+      setBursts((b) => [...b, { id: bid, type }])
+      setTimeout(() => setBursts((b) => b.filter((x) => x.id !== bid)), 1200)
+      track({ name: 'room_stamp', props: { id: room.id, type } })
+    } catch {}
+  }
+
+  async function startQuiz() {
+    if (!room) return
+    try {
+      const res = await fetch('/api/rooms/' + room.id + '/quiz_round', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'ask' }) })
+      const js = await res.json()
+      setQuiz(js); setSelected(null); setResult(null)
+      setCountdown(20)
+      if (timerRef.current) clearInterval(timerRef.current)
+      const end = Date.now() + 20000
+      timerRef.current = setInterval(() => {
+        const remain = Math.max(0, Math.ceil((end - Date.now()) / 1000))
+        setCountdown(remain)
+        if (remain <= 0) { clearInterval(timerRef.current); submitAnswerTimeout() }
+      }, 250)
+      track({ name: 'room_quiz_round', props: { id: room.id, action: 'ask' } })
+    } catch { toast({ description: 'ミニクイズ開始に失敗しました' }) }
+  }
+
+  async function submitAnswer() {
+    if (!room || !quiz || selected == null) return
+    try {
+      const res = await fetch('/api/rooms/' + room.id + '/quiz_round', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'answer', choice: selected }) })
+      const js = await res.json(); setResult(js.result)
+      track({ name: 'room_quiz_round', props: { id: room.id, action: 'answer', correct: js.result?.correct } })
+    } catch { toast({ description: '採点に失敗しました' }) }
+    finally { if (timerRef.current) clearInterval(timerRef.current) }
+  }
+
+  async function submitAnswerTimeout() {
+    if (!room || !quiz) return
+    try {
+      const res = await fetch('/api/rooms/' + room.id + '/quiz_round', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'answer', choice: -1 }) })
+      const js = await res.json(); setResult(js.result)
+      track({ name: 'room_quiz_round', props: { id: room.id, action: 'answer', correct: js.result?.correct, reason: 'timeout' } })
+    } catch { toast({ description: '採点に失敗しました' }) }
+  }
+
+  async function saveTakeaway() {
+    if (!room) return
+    const val = (document.getElementById('takeaway-input') as HTMLTextAreaElement | null)?.value || ''
+    if (!val.trim()) return
+    try {
+      await fetch('/api/rooms/' + room.id + '/takeaway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: val }) })
+      track({ name: 'room_takeaway_export', props: { id: room.id } })
+      toast({ description: '保存しました', duration: 2000 })
+      ;(document.getElementById('takeaway-input') as HTMLTextAreaElement | null)!.value = ''
+    } catch { toast({ description: '保存に失敗しました' }) }
+  }
+
+  async function onLeave() {
+    if (!room) return
+    try { await fetch('/api/rooms/' + room.id + '/leave', { method: 'POST' }); track({ name: 'room_leave', props: { id: room.id } }) } finally { router.push('/home') }
+  }
+
+  function shareRoom() {
+    if (!room) return
+    const url = `${location.origin}/collab?room=${room.id}`
+    if (navigator.share) navigator.share({ title: '一緒に学ぼう', text: 'このルームに参加してね', url }).catch(() => {})
+    else navigator.clipboard.writeText(url).then(() => toast({ description: '招待リンクをコピーしました' })).catch(() => {})
+    track({ name: 'room_share', props: { id: room.id } })
+  }
+
+  const members = room?.members || []
+  const stamps = room?.stamps || { like: 0, ask: 0, idea: 0 }
+
+  if (loading) return <div className="p-6">読み込み中…</div>
+  if (error) return (
+    <div className="p-6 text-center">
+      <div className="mb-3">入室に失敗しました。</div>
+      <Button onClick={() => router.refresh()}>再試行</Button>
+    </div>
+  )
+  if (!room) return null
 
   return (
-    <>
-      <div className="collab-container">
-        <header className="room-header">
-          <div className="room-info">
-            <h1>数学 - 二次関数のグラフ</h1>
-            <div className="room-meta">
-              <span>レベル: 標準</span>
-              <span>参加者: 3人</span>
-            </div>
-          </div>
-          <div className="room-actions">
-            <button className="icon-button">
-              <Mic size={18} />
-            </button>
-            <button className="icon-button">
-              <Video size={18} />
-            </button>
-            <button className="icon-button">
-              <LogOut size={18} />
-            </button>
-          </div>
-        </header>
-
-        <div className={cn('room-main', isZoomed && 'zoomed-in')}>
-           <aside className={cn('participants-sidebar', isParticipantsSidebarOpen ? 'open' : 'closed')}>
-            <div className="sidebar-header">
-              <span>参加者</span>
-               <div className="flex items-center gap-2">
-                <span className="participants-count">3人</span>
-                <button
-                  className="control-button"
-                  onClick={() => setIsParticipantsSidebarOpen(!isParticipantsSidebarOpen)}
-                >
-                  {isParticipantsSidebarOpen ? (
-                    <ChevronLeft size={16} />
-                  ) : (
-                    <ChevronRight size={16} />
-                  )}
-                </button>
-              </div>
-            </div>
-            <div className="participants-list">
-              <div className="participant-card active">
-                <div className="participant-avatar">
-                  <span>A</span>
-                  <div className="participant-status"></div>
-                </div>
-                <div className="participant-info">
-                  <div className="participant-name">
-                    <span>葵さん</span>
-                    <span className="participant-role">説明中</span>
-                  </div>
-                  <div className="participant-action">二次関数を説明中</div>
-                </div>
-                <div className="participant-controls">
-                  <button className="control-button">
-                    <ThumbsUp size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="participant-card">
-                <div className="participant-avatar">
-                  <span>K</span>
-                  <div className="participant-status"></div>
-                </div>
-                <div className="participant-info">
-                  <div className="participant-name">健太さん</div>
-                  <div className="participant-action">リスニング中</div>
-                </div>
-                <div className="participant-controls">
-                  <button className="control-button">
-                    <Hand size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="participant-card">
-                <div className="participant-avatar">
-                  <span>S</span>
-                  <div className="participant-status away"></div>
-                </div>
-                <div className="participant-info">
-                  <div className="participant-name">さくらさん</div>
-                  <div className="participant-action">一時退出中</div>
-                </div>
-                <div className="participant-controls">
-                  <button className="control-button">
-                    <Hand size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <main className="room-content">
-            <div className="problem-container">
-              <div className="problem-header">
-                <div className="problem-title">
-                  二次関数 y=2x²-4x+1 の頂点の座標を求めよ
-                </div>
-                <div className="problem-timer">
-                  <Clock className="h-4 w-4" />
-                  <span>05:30</span>
-                </div>
-              </div>
-              <div className="problem-content">
-                <p>
-                  ヒント: 平方完成を使用して頂点を求めます。y=ax²+bx+c
-                  の頂点のx座標は -b/2a です。
-                </p>
-              </div>
-            </div>
-
-            <div className="whiteboard-container">
-              <canvas ref={whiteboardRef} className="whiteboard"></canvas>
-              <div className="whiteboard-tools">
-                <button className="tool-button active">
-                  <Pencil size={18} />
-                </button>
-                <button className="tool-button">
-                  <Circle size={18} />
-                </button>
-                <button className="tool-button">
-                  <Square size={18} />
-                </button>
-                <button className="tool-button">
-                  <Triangle size={18} />
-                </button>
-                <button className="tool-button">
-                  <Type size={18} />
-                </button>
-                <button className="tool-button">
-                  <Undo size={18} />
-                </button>
-                <div className="color-palette">
-                  <div
-                    className="color-option"
-                    style={{ backgroundColor: '#000000' }}
-                  ></div>
-                  <div
-                    className="color-option"
-                    style={{ backgroundColor: '#4361ee' }}
-                  ></div>
-                  <div
-                    className="color-option"
-                    style={{ backgroundColor: '#f72585' }}
-                  ></div>
-                  <div
-                    className="color-option"
-                    style={{ backgroundColor: '#4cc9f0' }}
-                  ></div>
-                </div>
-              </div>
-               <div className="whiteboard-zoom-controls">
-                <button
-                  className="tool-button"
-                  onClick={() => setIsZoomed(!isZoomed)}
-                >
-                  {isZoomed ? <Minimize size={18} /> : <Maximize size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div ref={chatRef} className="chat-container" style={{ height: `${chatHeight}px` }}>
-              <div className="chat-resizer" onMouseDown={handleMouseDown}>
-                <div className="resize-handle"></div>
-              </div>
-              <div className="chat-header">
-                <div className="chat-tabs">
-                  <div className="chat-tab active">チャット</div>
-                  <div className="chat-tab">まとめ</div>
-                </div>
-              </div>
-              <div className="chat-messages">
-                <div className="message message-system">
-                  さくらさんがルームに参加しました
-                </div>
-                <div className="message message-incoming">
-                  <div className="message-sender">健太さん</div>
-                  <div className="message-content">
-                    頂点のx座標は -b/2a で求められるんだよね？
-                  </div>
-                </div>
-                <div className="message message-outgoing">
-                  <div className="message-content">
-                    そうだよ！b=-4, a=2 だから x=4/4=1 になる
-                  </div>
-                </div>
-                <div className="message message-incoming">
-                  <div className="message-sender">健太さん</div>
-                  <div className="message-content">
-                    なるほど！それでyの値は元の式に代入すればいいのか
-                  </div>
-                </div>
-              </div>
-              <div className="stamp-container">
-                <button className="stamp-button">👍 わかった</button>
-                <button className="stamp-button">🤔 もう一度</button>
-                <button className="stamp-button">📝 例題</button>
-                <button className="stamp-button">💡 ヒント</button>
-              </div>
-              <div className="chat-input-container">
-                <input
-                  type="text"
-                  className="chat-input"
-                  placeholder="メッセージを入力..."
-                />
-                <button className="send-button">
-                  <ArrowRight size={18} />
-                </button>
-              </div>
-            </div>
-          </main>
+    <div className="collab-container">
+      <header className="room-header">
+        <div className="room-info">
+          <h1>ルーム {room.id}{room.topic ? ` / ${room.topic}` : ''}</h1>
+          <div className="room-meta"><span>参加者 {members.length}</span></div>
         </div>
-        <footer className="room-footer">
-          <div className="footer-left">
-            <button
-              className={`footer-button button-secondary ${
-                isHandRaised ? 'hand-raised' : ''
-              }`}
-              onClick={handleRaiseHand}
-            >
-              <Hand size={16} />
-              <span>手を挙げる</span>
-            </button>
-            <button className="footer-button button-secondary">
-              <Lightbulb size={16} />
-              <span>ヒントを求める</span>
-            </button>
+        <div className="room-actions">
+          <button className="icon-button" onClick={() => setSidebarOpen((o) => !o)} aria-label="参加者パネル切替">☰</button>
+          <button className="icon-button" onClick={shareRoom} aria-label="共有">⇪</button>
+          <Button variant="outline" onClick={onLeave}>退出</Button>
+        </div>
+      </header>
+
+      <div className="room-main">
+        <aside className={`participants-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
+          <div className="sidebar-header">
+            <span>参加者</span>
+            <span className="participants-count">{members.length}</span>
           </div>
-          <div className="footer-right">
-            <button className="footer-button button-primary">
-              <Check size={16} />
-              <span>解答を提出</span>
-            </button>
-            <button className="footer-button button-accent">
-              <RefreshCw size={16} />
-              <span>交代する</span>
-            </button>
+          <div className="participants-list">
+            {members.map((m) => (
+              <div key={m.id} className="participant-card">
+                <div className="avatar-circle">{m.name.slice(0,1).toUpperCase()}</div>
+                <div className="participant-name">{m.name}</div>
+              </div>
+            ))}
           </div>
-        </footer>
+        </aside>
+
+        <div className="room-content">
+          {/* bursts overlay */}
+          <div className="relative h-0">
+            {bursts.map((b) => (
+              <div key={b.id} className={`stamp-burst ${b.type}`} aria-hidden>
+                {b.type === 'like' ? '👍' : b.type === 'ask' ? '❓' : '💡'}
+              </div>
+            ))}
+          </div>
+
+          <div className="whiteboard-container">
+            <canvas ref={canvasRef} className="whiteboard" aria-label="ホワイトボード" />
+            <div className="whiteboard-tools" role="toolbar" aria-label="ホワイトボードツール">
+              <button className={`tool-button${penColor === '#111827' ? ' active' : ''}`} onClick={() => setPenColor('#111827')} title="ペン(黒)">●</button>
+              <button className={`tool-button${penColor === '#dc2626' ? ' active' : ''}`} onClick={() => setPenColor('#dc2626')} title="ペン(赤)" style={{ color: '#dc2626' }}>●</button>
+              <button className={`tool-button${penColor === '#2563eb' ? ' active' : ''}`} onClick={() => setPenColor('#2563eb')} title="ペン(青)" style={{ color: '#2563eb' }}>●</button>
+              <button className="tool-button" onClick={() => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return; ctx.clearRect(0,0,c.width,c.height) }} title="クリア">↺</button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3">
+            <div className="rounded border bg-white p-3">
+              <div className="text-sm font-semibold mb-2">スタンプ</div>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => sendStamp('like')}>👍 いいね ({stamps.like})</Button>
+                <Button onClick={() => sendStamp('ask')} variant="secondary">❓ 質問 ({stamps.ask})</Button>
+                <Button onClick={() => sendStamp('idea')} variant="outline">💡 ひらめき ({stamps.idea})</Button>
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">ショートカット: 1 / 2 / 3</div>
+            </div>
+
+            <div className="rounded border bg-white p-3">
+              <div className="text-sm font-semibold mb-2">ミニクイズ</div>
+              {!quiz && (
+                <Button onClick={startQuiz}>出題する (Q)</Button>
+              )}
+              {quiz && (
+                <div>
+                  <div className="text-sm mb-2">残り {countdown} 秒</div>
+                  <div className="font-medium mb-2">{quiz.q}</div>
+                  <div className="grid gap-2">
+                    {quiz.choices.map((c, i) => (
+                      <Button key={i} variant={selected === i ? 'secondary' : 'outline'} onClick={() => setSelected(i)}>
+                        {i + 1}. {c}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button onClick={submitAnswer} disabled={selected == null}>送信 (Enter)</Button>
+                    {result && <span className="text-sm">{result.correct ? '正解！' : '不正解'}</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded border bg-white p-3 m-3">
+            <div className="text-sm font-semibold mb-2">今日の学び（テイクアウェイ）</div>
+            <textarea id="takeaway-input" className="w-full border rounded p-2" rows={3} placeholder="気づきや学びをメモ (Ctrl/⌘+Enterで保存)" />
+            <div className="mt-2">
+              <Button onClick={saveTakeaway}>保存</Button>
+            </div>
+          </div>
+
+          <div className="chat-container" style={{ height: 280 }}>
+            <div className="chat-header">
+              <div className="chat-tabs">
+                <div className="chat-tab active">メッセージ</div>
+              </div>
+            </div>
+            <div className="chat-messages" aria-live="polite">
+              {messages.map(m => (
+                <div key={m.id} className={`message message-${m.kind}`}>
+                  {m.kind !== 'system' && <div className="message-sender">{m.sender}</div>}
+                  <div className="message-content">{m.text}</div>
+                </div>
+              ))}
+            </div>
+            <div className="chat-input-container">
+              <input className="chat-input" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="メッセージを入力（Ctrl/⌘+Enterで送信）" onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { const name = displayName || 'ゲスト'; const t = chatInput.trim(); if (!t) return; setMessages(v => [...v, { id: Date.now(), sender: name, text: t, kind: 'outgoing' }]); setChatInput('') } }} />
+              <button className="send-button" aria-label="送信" onClick={() => { const name = displayName || 'ゲスト'; const t = chatInput.trim(); if (!t) return; setMessages(v => [...v, { id: Date.now(), sender: name, text: t, kind: 'outgoing' }]); setChatInput('') }}>➤</button>
+            </div>
+          </div>
+        </div>
       </div>
-    </>
-  );
+    </div>
+  )
 }
+
+export default function CollabPage() {
+  return (
+    <Suspense fallback={<div className="p-6">読み込み中…</div>}>
+      <CollabInner />
+    </Suspense>
+  )
+}
+

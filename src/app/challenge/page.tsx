@@ -1,204 +1,108 @@
+﻿"use client"
 
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import {
-  Star,
-  Clock,
-  Flame,
-  BookOpen,
-  Users,
-  Trophy,
-  Rocket,
-  Check,
-  Circle,
-  Home,
-  Target,
-  BarChart,
-  User,
-} from 'lucide-react';
-import './challenge.css';
+import { useEffect, useMemo, useState } from 'react'
+import type { ChallengeItem, ChallengeKind, ChallengeProgress } from '@/lib/types'
+import { useRouter } from 'next/navigation'
+import { ChallengeTabs } from '@/components/challenge/ChallengeTabs'
+import { ChallengeCard } from '@/components/challenge/ChallengeCard'
+import { ProgressModal } from '@/components/challenge/ProgressModal'
+import { SkeletonList } from '@/components/common/SkeletonList'
+import { ErrorState } from '@/components/common/ErrorState'
+import { Empty } from '@/components/common/Empty'
+import { track } from '@/lib/analytics'
+import { useToast } from '@/hooks/use-toast'
+import './challenge.css'
 
 export default function ChallengePage() {
-  const [activeTab, setActiveTab] = useState('daily');
-  const [showModal, setShowModal] = useState(false);
-  const [points, setPoints] = useState(1250);
+  const router = useRouter()
+  const { toast } = useToast()
+  const [tab, setTab] = useState<ChallengeKind>('daily')
+  const [items, setItems] = useState<ChallengeItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [progressFor, setProgressFor] = useState<string | null>(null)
+  const [progressData, setProgressData] = useState<ChallengeProgress | null>(null)
+  const [progressOpen, setProgressOpen] = useState(false)
 
-  const switchTab = (tabName: string) => {
-    setActiveTab(tabName);
-  };
+  async function loadList(kind: ChallengeKind, signal?: AbortSignal) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      router.push('/offline?from=/challenge')
+      return
+    }
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await fetch(`/api/challenges?tab=${kind}`, { cache: 'no-store', signal })
+      if (!res.ok) throw new Error('failed')
+      const json = await res.json()
+      setItems(json.items || [])
+    } catch (e: any) {
+      setError(e?.name === 'AbortError' ? 'timeout' : 'network')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const completeDailyChallenge = () => {
-    setShowModal(true);
-    setPoints(points + 100);
-  };
+  useEffect(() => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+    loadList(tab, controller.signal)
+    return () => { clearTimeout(timeout); controller.abort() }
+  }, [tab])
 
-  const closeRewardModal = () => {
-    setShowModal(false);
-  };
+  function onTabChange(v: ChallengeKind) {
+    setTab(v)
+    track({ name: 'challenge_tab_change', props: { tab: v } })
+  }
 
-  const startQuest = (questTitle: string) => {
-    alert(`「${questTitle}」を開始します！`);
-  };
+  async function onAccept(item: ChallengeItem) {
+    try {
+      await fetch('/api/challenge/accept', { method: 'POST' })
+      track({ name: 'challenge_accept', props: { id: item.id, moduleId: item.moduleId } })
+      toast({ description: 'チャレンジに参加しました。学習を開始します。' })
+      // 参加済み表示を即時反映
+      setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, joined: true } : it))
+      router.push(`/learn?module=${item.moduleId}&source=challenge`)
+    } catch {
+      toast({ description: '参加に失敗しました。再試行してください。' })
+    }
+  }
+
+  async function onViewProgress(id: string) {
+    setProgressFor(id)
+    setProgressOpen(true)
+    track({ name: 'challenge_view_progress', props: { id } })
+    try {
+      const res = await fetch(`/api/challenge/progress?id=${id}`, { cache: 'no-store' })
+      if (res.ok) setProgressData(await res.json())
+    } catch {}
+  }
+
+  const content = useMemo(() => {
+    if (loading) return <SkeletonList count={3} />
+    if (error) return <ErrorState onRetry={() => setTab((t) => t)} />
+    if (!items.length) return <Empty>新しいチャレンジを探しましょう</Empty>
+    return (
+      <div className="grid gap-3">
+        {items.map((it) => (
+          <ChallengeCard
+            key={it.id}
+            item={it}
+            onAccept={onAccept}
+            onViewProgress={onViewProgress}
+            onImpression={(id) => track({ name: 'challenge_card_impression', props: { id } })}
+          />
+        ))}
+      </div>
+    )
+  }, [loading, error, items])
 
   return (
-    <>
-      <div className="challenge-container">
-        <header className="challenges-header">
-          <div className="header-top">
-            <h1>チャレンジ & クエスト</h1>
-            <div className="points-display">
-              <Star className="text-yellow-300" />
-              <span className="points-count">{points.toLocaleString()}</span>
-            </div>
-          </div>
-          <div className="challenges-title">目標を達成して報酬を獲得</div>
-          <div className="challenges-subtitle">
-            毎日新しいチャレンジが登場します
-          </div>
-        </header>
-
-        <div className="container-inner">
-          <div className="tabs-navigation">
-            <div
-              className={`tab-button ${activeTab === 'daily' ? 'active' : ''}`}
-              onClick={() => switchTab('daily')}
-            >
-              デイリー
-            </div>
-            <div
-              className={`tab-button ${
-                activeTab === 'weekly' ? 'active' : ''
-              }`}
-              onClick={() => switchTab('weekly')}
-            >
-              ウィークリー
-            </div>
-            <div
-              className={`tab-button ${
-                activeTab === 'quests' ? 'active' : ''
-              }`}
-              onClick={() => switchTab('quests')}
-            >
-              クエスト
-            </div>
-          </div>
-
-          {activeTab === 'daily' && (
-            <section className="daily-challenge" id="daily-tab">
-              <div className="daily-badge">デイリーチャレンジ</div>
-              <div className="daily-header">
-                <div className="daily-title">今日の目標</div>
-                <div className="daily-timer">
-                  <Clock className="h-4 w-4" />
-                  <span>14:32:10</span>
-                </div>
-              </div>
-              <div className="daily-progress">
-                <div
-                  className="daily-progress-fill"
-                  style={{ width: '60%' }}
-                ></div>
-              </div>
-              <div className="daily-tasks">
-                <div className="daily-task">
-                  <div className="task-checkbox checked">
-                    <Check size={16} />
-                  </div>
-                  <div className="task-info">
-                    <div className="task-name">3つの学習モジュールを完了</div>
-                    <div className="task-reward">
-                      <Star className="h-3 w-3" /> 50ポイント
-                    </div>
-                  </div>
-                </div>
-                <div className="daily-task">
-                  <div className="task-checkbox">
-                    <Check size={16} />
-                  </div>
-                  <div className="task-info">
-                    <div className="task-name">連続学習ストリークを維持</div>
-                    <div className="task-reward">
-                      <Star className="h-3 w-3" /> 30ポイント
-                    </div>
-                  </div>
-                </div>
-                <div className="daily-task">
-                  <div className="task-checkbox">
-                    <Check size={16} />
-                  </div>
-                  <div className="task-info">
-                    <div className="task-name">コラボルームに参加</div>
-                    <div className="task-reward">
-                      <Star className="h-3 w-3" /> 20ポイント
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="daily-actions">
-                <button className="action-button button-secondary">
-                  あとで
-                </button>
-                <button
-                  className="action-button button-primary"
-                  onClick={completeDailyChallenge}
-                >
-                  挑戦する
-                </button>
-              </div>
-            </section>
-          )}
-
-          {activeTab === 'weekly' && (
-            <section className="weekly-section" id="weekly-tab">
-              <div className="section-header">
-                <div className="section-title">ウィークリーチャレンジ</div>
-                <Link href="#" className="section-link">
-                  すべて見る
-                </Link>
-              </div>
-              <div className="challenge-cards">{/* Weekly Challenge Cards */}</div>
-            </section>
-          )}
-
-          {activeTab === 'quests' && (
-            <section className="quests-section" id="quests-tab">
-              <div className="section-header">
-                <div className="section-title">スペシャルクエスト</div>
-                <Link href="#" className="section-link">
-                  すべて見る
-                </Link>
-              </div>
-              {/* Quest Cards */}
-            </section>
-          )}
-
-          <section className="ranking-section">
-            <div className="section-header">
-              <div className="section-title">フレンドランキング</div>
-              <Link href="#" className="section-link">
-                全体ランキング
-              </Link>
-            </div>
-            <div className="ranking-card">{/* Ranking content */}</div>
-          </section>
-        </div>
+      <div className="p-4 space-y-3">
+        <h1 className="text-lg font-semibold">チャレンジ</h1>
+        <ChallengeTabs value={tab} onChange={onTabChange} />
+        {content}
+        <ProgressModal open={progressOpen} onOpenChange={setProgressOpen} data={progressData} />
       </div>
-
-      {showModal && (
-        <div className="reward-modal show">
-          <div className="modal-content">
-            <div className="modal-icon">🎉</div>
-            <div className="modal-title">チャレンジ達成！</div>
-            <div className="modal-text">デイリーチャレンジを完了しました</div>
-            <div className="modal-points">+100 ⭐</div>
-            <button className="modal-button" onClick={closeRewardModal}>
-              ポイントを受け取る
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  );
+  )
 }

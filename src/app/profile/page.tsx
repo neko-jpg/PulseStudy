@@ -1,188 +1,107 @@
+"use client"
 
-'use client';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useToast } from '@/hooks/use-toast'
+import { track } from '@/lib/analytics'
+import { ProfileHeader } from '@/components/profile/ProfileHeader'
+import { GoalCard } from '@/components/profile/GoalCard'
+import { NotifPrefsCard } from '@/components/profile/NotifPrefsCard'
+import { PrivacyCard } from '@/components/profile/PrivacyCard'
+import { DataSection } from '@/components/profile/DataSection'
+import { UpgradeCard } from '@/components/profile/UpgradeCard'
+import './profile.css'
+import { BadgeShelf } from '@/components/profile/BadgeShelf'
+import { BestTimeCard } from '@/components/profile/BestTimeCard'
 
-import Link from 'next/link';
-import {
-  Home,
-  BookOpen,
-  Target,
-  Users,
-  BarChart,
-  User,
-  Flame,
-  Clock,
-  Award,
-  Settings,
-  Bell,
-  Eye,
-  Lock,
-  Database,
-  FileText,
-  HelpCircle,
-  LogOut,
-  ChevronRight,
-  AlertTriangle,
-  Book,
-  Code,
-  FlaskConical,
-  Globe,
-  Landmark,
-  Calculator,
-} from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
-import './profile.css';
+type Summary = { mins:number; acc:number; streak:number; badges:number }
+type Goals = { dailyMins:number; weeklyMins:number }
+type Notifs = { learn:boolean; challenge:boolean; social:boolean }
+type Privacy = { mode: 'private'|'link'|'public' }
+
+type Payload = {
+  user: { name:string; handle:string; avatar?:string }
+  summary: Summary
+  goals: Goals
+  notifs: Notifs
+  quiet?: { start:string; end:string }
+  privacy: Privacy
+  plan: { tier: 'free' | 'plus' }
+}
 
 export default function ProfilePage() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<Payload | null>(null)
+  const [saving, setSaving] = useState({ goals:false, notifs:false, privacy:false, export:false, delete:false })
+  const [plan, setPlan] = useState<'free'|'plus'>('free')
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+    async function load() {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch('/api/profile', { cache: 'no-store', signal: controller.signal })
+        if (!res.ok) throw new Error('failed')
+        const j = await res.json(); setData(j); setPlan(j.plan?.tier || 'free')
+      } catch (e:any) {
+        if (e?.name === 'AbortError') setError('timeout')
+        else if (typeof navigator !== 'undefined' && !navigator.onLine) router.push('/offline?from=/profile')
+        else setError('network')
+      } finally {
+        setLoading(false)
+        clearTimeout(timeout)
+      }
+    }
+    load()
+    return () => { controller.abort(); clearTimeout(timeout) }
+  }, [router])
+
+  async function saveGoals(v: Goals) {
+    try { setSaving(s => ({...s, goals:true})); await fetch('/api/settings/goals', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(v) }); track({ name:'settings_save_goal', props:v }); toast({ description:'目標を保存しました' }) } finally { setSaving(s => ({...s, goals:false})) }
+  }
+  async function saveNotifs(v: Notifs & { quietStart?: string, quietEnd?: string }) {
+    try { setSaving(s => ({...s, notifs:true})); await fetch('/api/settings/notifications', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(v) }); track({ name:'notif_settings_change', props:v }); toast({ description:'通知設定を保存しました' }) } finally { setSaving(s => ({...s, notifs:false})) }
+  }
+  async function savePrivacy(m: Privacy['mode']) {
+    try { setSaving(s => ({...s, privacy:true})); await fetch('/api/settings/privacy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mode:m }) }); track({ name:'privacy_mode_change', props:{mode:m} }); toast({ description:'プライバシー設定を保存しました' }) } finally { setSaving(s => ({...s, privacy:false})) }
+  }
+  async function doExport() {
+    try { setSaving(s => ({...s, export:true})); const res = await fetch('/api/data/export', { method:'POST' }); const json = await res.json(); track({ name:'data_export' }); toast({ description:`エクスポートを開始しました (Job: ${json.jobId})` }) } finally { setSaving(s => ({...s, export:false})) }
+  }
+  async function doDelete() {
+    try { setSaving(s => ({...s, delete:true})); await fetch('/api/data/delete', { method:'POST' }); track({ name:'data_delete' }); toast({ description:'アカウントを削除しました' }); router.push('/') } finally { setSaving(s => ({...s, delete:false})) }
+  }
+
+  if (loading) return (
+    <div className="p-4 space-y-3">
+      <Skeleton className="h-16 w-full" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-24 w-full" />
+    </div>
+  )
+  if (error) return (
+    <div className="p-6 text-center">
+      <div className="mb-3">読み込みに失敗しました。</div>
+      <button className="underline" onClick={() => location.reload()}>再試行</button>
+    </div>
+  )
+  if (!data) return null
+
   return (
-    <>
-      <div className="profile-container">
-        <header className="profile-header">
-          <div className="profile-avatar">A</div>
-          <h1 className="profile-name">葵さん</h1>
-          <p className="profile-bio">高校2年・共通テスト志望</p>
-          <div className="profile-stats">
-            <div className="stat-item">
-              <div className="stat-value">7日</div>
-              <div className="stat-label">連続学習</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-value">42時間</div>
-              <div className="stat-label">総学習時間</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-value">1,250</div>
-              <div className="stat-label">ポイント</div>
-            </div>
-          </div>
-        </header>
-
-        <div className="container-inner">
-          <section className="settings-section">
-            <div className="section-header">
-              <h2 className="section-title">プロフィール設定</h2>
-            </div>
-            <div className="setting-item">
-              <label htmlFor="display-name" className="setting-name">
-                表示名
-              </label>
-              <input
-                id="display-name"
-                type="text"
-                className="setting-input"
-                defaultValue="葵さん"
-              />
-            </div>
-            <div className="setting-item">
-              <label htmlFor="grade-select" className="setting-name">
-                学年
-              </label>
-              <select
-                id="grade-select"
-                className="setting-select"
-                defaultValue="高校2年"
-              >
-                <option>中学1年</option>
-                <option>中学2年</option>
-                <option>中学3年</option>
-                <option>高校1年</option>
-                <option>高校2年</option>
-                <option>高校3年</option>
-                <option>大学生</option>
-                <option>社会人</option>
-              </select>
-            </div>
-            <div className="setting-item">
-              <label htmlFor="school-goal" className="setting-name">
-                志望校
-              </label>
-              <input
-                id="school-goal"
-                type="text"
-                className="setting-input"
-                placeholder="例: 東京大学"
-              />
-            </div>
-            <div className="setting-item">
-              <label htmlFor="goal-select" className="setting-name">
-                学習目標
-              </label>
-              <select
-                id="goal-select"
-                className="setting-select"
-                defaultValue="45分"
-              >
-                <option>15分</option>
-                <option>30分</option>
-                <option>45分</option>
-                <option>1時間</option>
-                <option>1.5時間</option>
-                <option>2時間</option>
-              </select>
-            </div>
-          </section>
-
-          <section className="settings-section">
-            <div className="section-header">
-              <h2 className="section-title">通知設定</h2>
-            </div>
-            <div className="setting-item">
-              <span className="setting-name">学習リマインダー</span>
-              <Switch defaultChecked />
-            </div>
-            <div className="setting-item">
-              <span className="setting-name">チャレンジ通知</span>
-              <Switch defaultChecked />
-            </div>
-            <div className="setting-item">
-              <span className="setting-name">フレンド活動</span>
-              <Switch defaultChecked />
-            </div>
-          </section>
-
-          <section className="settings-section">
-            <div className="section-header">
-              <h2 className="section-title">バッジと実績</h2>
-              <Link href="#" className="section-link">
-                すべて見る
-              </Link>
-            </div>
-            <div className="badge-container">
-              <div className="badge-item">
-                <Flame />
-              </div>
-              <div className="badge-item">
-                <Clock />
-              </div>
-              <div className="badge-item">
-                <Award />
-              </div>
-              <div className="badge-item locked">
-                <Lock />
-              </div>
-              <div className="badge-item locked">
-                <Lock />
-              </div>
-              <div className="badge-item locked">
-                <Lock />
-              </div>
-            </div>
-          </section>
-
-          <section className="settings-section">
-            <div className="setting-item">
-              <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-500 hover:bg-red-50">
-                ログアウト
-              </Button>
-            </div>
-             <div className="setting-item">
-              <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-500 hover:bg-red-50">
-                アカウントを削除
-              </Button>
-            </div>
-          </section>
-        </div>
-      </div>
-    </>
-  );
+    <div className="p-4 space-y-3">
+      <ProfileHeader user={data.user} summary={data.summary} />
+      {plan === 'plus' ? <BestTimeCard /> : <UpgradeCard onUpgraded={() => setPlan('plus')} />}
+      <GoalCard value={data.goals} onSave={saveGoals} saving={saving.goals} />
+      <NotifPrefsCard value={data.notifs} onSave={saveNotifs} saving={saving.notifs} quiet={data.quiet} />
+      <PrivacyCard mode={data.privacy.mode} onSave={savePrivacy} saving={saving.privacy} />
+      <BadgeShelf />
+      <DataSection onExport={doExport} onDelete={doDelete} exporting={saving.export} deleting={saving.delete} />
+    </div>
+  )
 }

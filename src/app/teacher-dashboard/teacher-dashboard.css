@@ -1,21 +1,7 @@
-
-:root {
-  --primary: #4361ee;
-  --secondary: #3a0ca3;
-  --accent: #f72585;
-  --success: #4cc9f0;
-  --correct: #4ade80;
-  --incorrect: #f87171;
-  --warning: #fca311;
-  --light: #f8f9fa;
-  --dark: #212529;
-  --gray: #6c757d;
-  --light-gray: #e9ecef;
-  --medium-gray: #ced4da;
-}
+﻿
 
 body {
-  background-color: #f5f7fb;
+  background-color: hsl(var(--background));
   color: var(--dark);
   line-height: 1.6;
 }
@@ -29,7 +15,7 @@ body {
   padding: 0 16px;
 }
 
-/* ヘッダー */
+/* 繝倥ャ繝繝ｼ */
 .teacher-header {
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   color: white;
@@ -102,7 +88,7 @@ body {
   opacity: 0.9;
 }
 
-/* クイックアクション */
+/* 繧ｯ繧､繝・け繧｢繧ｯ繧ｷ繝ｧ繝ｳ */
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -111,7 +97,7 @@ body {
 }
 
 .action-card {
-  background-color: white;
+  background-color: hsl(var(--card));
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
@@ -135,9 +121,9 @@ body {
   color: var(--gray);
 }
 
-/* クラス概要 */
+/* 繧ｯ繝ｩ繧ｹ讎りｦ・*/
 .overview-section {
-  background-color: white;
+  background-color: hsl(var(--card));
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
@@ -158,7 +144,7 @@ body {
 
 .section-link {
   font-size: 14px;
-  color: var(--primary);
+  color: hsl(var(--primary));
   text-decoration: none;
 }
 
@@ -187,9 +173,9 @@ body {
   color: var(--gray);
 }
 
-/* 生徒進捗 */
+/* 逕溷ｾ帝ｲ謐・*/
 .progress-section {
-  background-color: white;
+  background-color: hsl(var(--card));
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
@@ -243,7 +229,7 @@ body {
 
 .student-progress-fill {
   height: 100%;
-  background-color: var(--primary);
+  background-color: hsl(var(--primary));
   border-radius: 3px;
 }
 
@@ -262,9 +248,9 @@ body {
   color: var(--gray);
 }
 
-/* 課題管理 */
+/* 隱ｲ鬘檎ｮ｡逅・*/
 .assignments-section {
-  background-color: white;
+  background-color: hsl(var(--card));
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
@@ -289,8 +275,8 @@ body {
 }
 
 .assignment-tab.active {
-  color: var(--primary);
-  border-bottom: 2px solid var(--primary);
+  color: hsl(var(--primary));
+  border-bottom: 2px solid hsl(var(--primary));
 }
 
 .assignment-list {
@@ -335,7 +321,7 @@ body {
 
 .status-assigned {
   background-color: rgba(67, 97, 238, 0.2);
-  color: var(--primary);
+  color: hsl(var(--primary));
 }
 
 .status-completed {
@@ -348,9 +334,9 @@ body {
   color: var(--incorrect);
 }
 
-/* 分析ダッシュボード */
+/* 蛻・梵繝繝・す繝･繝懊・繝・*/
 .analytics-section {
-  background-color: white;
+  background-color: hsl(var(--card));
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
@@ -395,7 +381,7 @@ body {
 
 .chart-bar {
   flex: 1;
-  background-color: var(--primary);
+  background-color: hsl(var(--primary));
   border-radius: 4px 4px 0 0;
   position: relative;
 }
@@ -410,9 +396,9 @@ body {
   color: var(--gray);
 }
 
-/* 介入提案 */
+/* 莉句・謠先｡・*/
 .intervention-section {
-  background-color: white;
+  background-color: hsl(var(--card));
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
@@ -462,7 +448,7 @@ body {
 }
 
 .intervention-action {
-  background-color: var(--primary);
+  background-color: hsl(var(--primary));
   color: white;
   border: none;
   border-radius: 8px;
@@ -470,3 +456,4 @@ body {
   font-size: 12px;
   cursor: pointer;
 }
+

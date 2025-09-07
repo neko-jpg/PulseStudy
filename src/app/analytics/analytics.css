@@ -1,21 +1,5 @@
-
-:root {
-    --primary: #4361ee;
-    --secondary: #3a0ca3;
-    --accent: #f72585;
-    --success: #4cc9f0;
-    --correct: #4ade80;
-    --incorrect: #f87171;
-    --warning: #fca311;
-    --light: #f8f9fa;
-    --dark: #212529;
-    --gray: #6c757d;
-    --light-gray: #e9ecef;
-    --medium-gray: #ced4da;
-}
-
-.analytics-container {
-    background-color: #f5f7fb;
+﻿.analytics-container {
+    background-color: hsl(var(--background));
     color: var(--dark);
     line-height: 1.6;
     padding-bottom: 80px;
@@ -26,9 +10,9 @@
     padding: 0 16px;
 }
 
-/* ヘッダー */
+
 .analytics-header {
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
     color: white;
     padding: 20px 16px;
     border-radius: 0 0 16px 16px;
@@ -60,8 +44,8 @@
 }
 
 .period-button.active {
-    background-color: white;
-    color: var(--primary);
+    background-color: hsl(var(--card));
+    color: hsl(var(--primary));
     font-weight: 600;
 }
 
@@ -76,7 +60,7 @@
     opacity: 0.9;
 }
 
-/* サマリーカード */
+
 .summary-cards {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -85,7 +69,7 @@
 }
 
 .summary-card {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 16px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
@@ -118,9 +102,9 @@
     color: var(--incorrect);
 }
 
-/* ヒートマップ */
+
 .heatmap-section {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 24px;
@@ -188,9 +172,9 @@
     display: block;
 }
 
-/* 集中度グラフ */
+
 .focus-section {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 24px;
@@ -216,7 +200,7 @@
 
 .chart-bar {
     flex: 1;
-    background-color: var(--primary);
+    background-color: hsl(var(--primary));
     border-radius: 4px 4px 0 0;
     position: relative;
     transition: filter 0.2s ease;
@@ -233,9 +217,9 @@
     color: var(--gray);
 }
 
-/* 科目分析 */
+
 .subjects-section {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 24px;
@@ -275,9 +259,9 @@
     font-weight: 600;
 }
 
-/* 改善ポイント */
+
 .improvement-section {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 24px;
@@ -307,7 +291,7 @@
 }
 
 .improvement-action {
-    background-color: var(--primary);
+    background-color: hsl(var(--primary));
     color: white;
     border: none;
     border-radius: 20px;
@@ -316,9 +300,9 @@
     cursor: pointer;
 }
 
-/* スケジュール提案 */
+
 .schedule-section {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 24px;
@@ -341,7 +325,7 @@
 }
 
 .schedule-day.active {
-    background-color: var(--primary);
+    background-color: hsl(var(--primary));
     color: white;
 }
 
@@ -379,9 +363,9 @@
     color: var(--gray);
 }
 
-/* 共有セクション */
+
 .share-section {
-    background-color: white;
+    background-color: hsl(var(--card));
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 24px;
@@ -408,41 +392,20 @@
 
 .share-icon {
     font-size: 24px;
-    color: var(--primary);
+    color: hsl(var(--primary));
 }
 
 .share-text {
     font-size: 14px;
 }
 
-/* ボトムナビゲーション */
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background-color: white;
-    display: flex;
-    justify-content: space-around;
-    padding: 12px 0;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-    z-index: 50;
-}
 
-.nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    color: var(--gray);
-    font-size: 12px;
-    text-decoration: none;
-}
 
-.nav-item.active {
-    color: var(--primary);
-}
 
-.nav-icon {
-    font-size: 20px;
-}
+
+
+
+
+
+
+

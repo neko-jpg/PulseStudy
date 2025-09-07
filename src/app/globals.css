@@ -37,6 +37,17 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Aliases for legacy page-level tokens (direct color values) */
+    --light: hsl(var(--muted));
+    --dark: hsl(var(--foreground));
+    --gray: hsl(var(--muted-foreground));
+    --light-gray: hsl(var(--muted));
+    --medium-gray: hsl(var(--input));
+    --success: hsl(var(--chart-2));
+    --correct: hsl(var(--chart-2));
+    --incorrect: hsl(var(--destructive));
+    --warning: hsl(var(--accent));
   }
   .dark {
     --background: 0 0% 3.9%;

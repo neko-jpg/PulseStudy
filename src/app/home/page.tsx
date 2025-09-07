@@ -1,245 +1,174 @@
+﻿"use client"
 
-'use client';
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { Bell, Flame, Users } from 'lucide-react'
+import { QuickStartCard } from '@/components/home/QuickStartCard'
+import { TaskCard } from '@/components/home/TaskCard'
+import { PulseCard } from '@/components/home/PulseCard'
+import { ChallengeStrip } from '@/components/home/ChallengeStrip'
+import { track } from '@/lib/analytics'
+import { useHomeStore, type ModuleSummary } from '@/store/homeStore'
+import './home.css'
 
-import { useEffect } from 'react';
-import Link from 'next/link';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import {
-  Bell,
-  Flame,
-  Timer,
-  BarChart,
-  Trophy,
-  Zap,
-  Home,
-  BookOpen,
-  Target,
-  Users,
-  User,
-} from 'lucide-react';
-import './home.css';
+type HomeApi = {
+  quickstart: ModuleSummary
+  tasks: ModuleSummary[]
+  unread: number
+  streakDays: number
+  pulse: number
+}
 
 export default function HomePage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<HomeApi | null>(null)
+  const setUnread = useHomeStore((s) => s.setUnread)
+  const setPulse = useHomeStore((s) => s.setPulse)
+  const setStreakDays = useHomeStore((s) => s.setStreakDays)
+  const setCurrentModuleId = useHomeStore((s) => s.setCurrentModuleId)
+  const unread = useHomeStore((s) => s.unread)
+
+  const today = useMemo(() => new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }), [])
+
   useEffect(() => {
-    const setCurrentDate = () => {
-      const dateElement = document.getElementById('current-date');
-      if (dateElement) {
-        const now = new Date();
-        const options: Intl.DateTimeFormatOptions = {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          weekday: 'long',
-        };
-        dateElement.textContent = now.toLocaleDateString('ja-JP', options);
-      }
-    };
+    let active = true
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
 
-    setCurrentDate();
-  }, []);
+    async function load() {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) { router.push('/offline?from=/home'); return }
+      try {
+        setLoading(true); setError(null)
+        const res = await fetch('/api/home', { cache: 'no-store', signal: controller.signal })
+        if (!res.ok) { if (res.status === 401) return router.push('/login'); throw new Error('failed') }
+        const json: HomeApi = await res.json()
+        if (!active) return
+        setData(json); setUnread(json.unread); setPulse(json.pulse); setStreakDays(json.streakDays)
+        if (json.quickstart?.moduleId) setCurrentModuleId(json.quickstart.moduleId)
+      } catch (e: any) { setError(e?.name === 'AbortError' ? 'timeout' : 'network') }
+      finally { if (active) setLoading(false) }
+    }
 
-  const startLearning = (moduleId: number) => {
-    // In a real implementation, you would navigate to the learning screen here.
-    // For now, we'll just show an alert.
-    alert(`モジュール ${moduleId} を開始します！`);
-  };
+    track({ name: 'home_view' })
+    load()
+
+    let pollTimer: any
+    async function syncUnread() {
+      try { const r = await fetch('/api/notifications/unread-count', { cache: 'no-store' }); if (r.ok) { const { unread } = await r.json(); setUnread(unread ?? 0) } } catch {}
+    }
+    pollTimer = setInterval(syncUnread, 30000)
+    const onVis = () => { if (document.visibilityState === 'visible') syncUnread() }
+    window.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', syncUnread)
+    return () => { active = false; clearTimeout(timeout); controller.abort(); clearInterval(pollTimer); window.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', syncUnread) }
+  }, [router, setCurrentModuleId, setPulse, setStreakDays, setUnread])
+
+  const tasks = data?.tasks ?? []
+  const showEmptyTasks = !loading && tasks.length === 0
+
+  useEffect(() => {
+    if (!loading && data) {
+      track({ name: 'home_impression_quickstart', props: { moduleId: data.quickstart?.moduleId } })
+      const ids = (data.tasks || []).slice(0, 3).map((t) => t.moduleId)
+      if (ids.length) track({ name: 'home_impression_task', props: { moduleIds: ids } })
+    }
+  }, [loading, data])
 
   return (
     <div className="home-container">
       <header className="home-header">
         <div className="header-top">
           <div className="user-info">
-            <Link href="/profile">
-              <Avatar>
-                <AvatarFallback>A</AvatarFallback>
-              </Avatar>
+            <Link href="/profile" aria-label="プロフィールへ">
+              <Avatar><AvatarFallback>A</AvatarFallback></Avatar>
             </Link>
             <div>
               <div>葵さん</div>
-              <div className="streak">
+              <div className="streak" aria-live="polite">
                 <Flame className="h-4 w-4" />
-                <span className="streak-count">7日</span>
+                <span className="streak-count">{data?.streakDays ?? 0}日</span>
               </div>
             </div>
           </div>
           <div className="notification">
-            <Link href="/notifications">
-              <Bell />
+            <Link href="/notifications" aria-label="通知へ">
+              <div className="relative" role="button">
+                <Bell />
+                {unread > 0 && (
+                  <span aria-label={`${unread}件の未読`} className="absolute -top-1 -right-1 inline-flex items-center justify-center text-[10px] rounded-full bg-red-500 text-white w-4 h-4">{unread}</span>
+                )}
+              </div>
             </Link>
           </div>
         </div>
-        <div className="greeting">
-          <h1>
-            今日も学びを
-            <br />
-            高めましょう
-          </h1>
-        </div>
-        <div className="date" id="current-date"></div>
+        <div className="greeting"><h1>今日も学びを高めましょう</h1></div>
+        <div className="date" aria-live="polite">{today}</div>
       </header>
 
       <div className="container-inner">
-        <section className="quick-start">
+        <section className="quick-start" aria-label="続きから">
           <div className="section-title">
-            <span>今日やる</span>
-            <Link href="#" className="see-all">
-              すべて見る
-            </Link>
+            <span>今日のおすすめ</span>
+            <Link href="/learn-top" className="see-all" aria-label="おすすめをすべて見る">すべて見る</Link>
           </div>
 
-          <Card className="task-card">
-            <CardHeader>
-              <div className="task-subject">数学</div>
-              <CardTitle className="task-title">
-                二次関数のグラフをマスター
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="task-meta">
-                <div className="task-meta-item">
-                  <Timer className="h-4 w-4" /> 5分
-                </div>
-                <div className="task-meta-item">
-                  <BarChart className="h-4 w-4" /> 3問
-                </div>
-              </div>
-              <Link href="/learn">
-                <Button className="start-button">続きから始める</Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <QuickStartCard
+            data={data?.quickstart}
+            loading={loading}
+            error={error === 'timeout' || error === 'network' ? 'error' : null}
+            onRetry={() => location.reload()}
+            onQuickStart={() => track({ name: 'home_click_quickstart' })}
+          />
 
-          <Card className="task-card recommended">
-            <CardHeader>
-              <div className="task-subject">英語</div>
-              <CardTitle className="task-title">苦手な不定詞を克服</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="task-meta">
-                <div className="task-meta-item">
-                  <Timer className="h-4 w-4" /> 5分
-                </div>
-                <div className="task-meta-item">
-                  <BarChart className="h-4 w-4" /> 4問
-                </div>
+          {loading && (
+            <div className="grid grid-cols-1 gap-3 mt-3">
+              <TaskCard loading />
+              <TaskCard loading />
+              <TaskCard loading />
+            </div>
+          )}
+
+          {!loading && showEmptyTasks && (
+            <div className="mt-3" role="status" aria-live="polite">
+              <div className="p-4 text-sm">今日のタスクはありません。おすすめから始めましょう</div>
+              <div className="px-4 pb-4">
+                <Link href="/learn-top"><Button variant="secondary" className="w-full">おすすめを見る</Button></Link>
               </div>
-              <Button
-                className="start-button"
-                onClick={() => startLearning(2)}
-              >
-                始める
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+          )}
+
+          {!loading && tasks.length > 0 && (
+            <div className="grid grid-cols-1 gap-3 mt-3">
+              {tasks.slice(0, 3).map((m) => (
+                <TaskCard key={m.id} module={m} onClick={() => track({ name: 'home_click_task', props: { moduleId: m.moduleId } })} onImpression={() => track({ name: 'home_impression_task', props: { moduleId: m.moduleId } })} />
+              ))}
+            </div>
+          )}
         </section>
 
-        <section className="pulse-section">
-          <div className="section-title">
-            <span>没入度パルス</span>
-          </div>
-          <Card className="pulse-card">
-            <CardContent>
-              <div className="pulse-header">
-                <div className="pulse-title">集中度</div>
-                <div className="pulse-value">78%</div>
-              </div>
-              <div className="sparkline">
-                <div className="sparkline-fill"></div>
-              </div>
-              <div className="pulse-days">
-                <span>月</span>
-                <span>火</span>
-                <span>水</span>
-                <span>木</span>
-                <span>金</span>
-                <span>土</span>
-                <span>日</span>
-              </div>
-            </CardContent>
-          </Card>
+        <section className="pulse-section" aria-label="集中度">
+          <PulseCard value={data?.pulse ?? 0} />
         </section>
 
-        <section className="challenge-section">
-          <div className="section-title">
-            <span>チャレンジ</span>
-            <Link href="/challenge" className="see-all">
-              すべて見る
-            </Link>
-          </div>
-
-          <Card className="challenge-card">
-            <CardContent>
-              <div className="challenge-icon">
-                <Trophy />
-              </div>
-              <div className="challenge-info">
-                <div className="challenge-title">5日連続学習</div>
-                <div className="challenge-desc">あと2日で達成！</div>
-                <Progress value={65} className="progress-bar" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="challenge-card">
-            <CardContent>
-              <div className="challenge-icon">
-                <Zap />
-              </div>
-              <div className="challenge-info">
-                <div className="challenge-title">朝活マスター</div>
-                <div className="challenge-desc">今週3回の朝学習</div>
-                <Progress value={33} className="progress-bar" />
-              </div>
-            </CardContent>
-          </Card>
+        <section className="challenge-section" aria-label="チャレンジ">
+          <ChallengeStrip streakDays={data?.streakDays ?? 0} />
         </section>
 
-        <section className="community-section">
-          <div className="section-title">
-            <span>友達の活動</span>
-            <Link href="#" className="see-all">
-              すべて見る
-            </Link>
-          </div>
-
-          <div className="friend-activity">
-            <Avatar className="friend-avatar">
-              <AvatarFallback>K</AvatarFallback>
-            </Avatar>
-            <div className="friend-info">
-              <div className="friend-name">健太</div>
-              <div className="friend-action">数学のクイズを完了</div>
+        <section className="community-section" aria-label="友人アクティビティ">
+          <Link href="/notifications?tab=social" className="flex items-center gap-3 rounded-lg border p-3" onClick={() => track({ name: 'home_click_social' })} aria-label="友人アクティビティを見る">
+            <Users className="h-5 w-5" aria-hidden />
+            <div>
+              <div className="text-sm font-medium">友人アクティビティ</div>
+              <div className="text-xs text-muted-foreground">最新の仲間の動きをチェック</div>
             </div>
-            <div className="friend-time">12分前</div>
-          </div>
-
-          <div className="friend-activity">
-            <Avatar className="friend-avatar">
-              <AvatarFallback>S</AvatarFallback>
-            </Avatar>
-            <div className="friend-info">
-              <div className="friend-name">さくら</div>
-              <div className="friend-action">3日連続で学習中</div>
-            </div>
-            <div className="friend-time">1時間前</div>
-          </div>
-
-          <div className="friend-activity">
-            <Avatar className="friend-avatar">
-              <AvatarFallback>R</AvatarFallback>
-            </Avatar>
-            <div className="friend-info">
-              <div className="friend-name">涼太</div>
-              <div className="friend-action">新しいバッジを獲得</div>
-            </div>
-            <div className="friend-time">2時間前</div>
-          </div>
+          </Link>
         </section>
       </div>
-
     </div>
-  );
+  )
 }
