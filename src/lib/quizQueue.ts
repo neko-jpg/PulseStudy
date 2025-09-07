@@ -7,6 +7,7 @@ type Attempt = {
 }
 
 const KEY = 'quizQueue:v1'
+const MAX = 200
 
 function read(): Attempt[] {
   try {
@@ -20,7 +21,7 @@ function read(): Attempt[] {
 }
 
 function write(arr: Attempt[]) {
-  try { localStorage.setItem(KEY, JSON.stringify(arr)) } catch {}
+  try { localStorage.setItem(KEY, JSON.stringify(arr.slice(-MAX))) } catch {}
 }
 
 export function enqueue(attempt: Attempt) {
@@ -45,8 +46,9 @@ export async function flush() {
     } catch {
       remain.push(a)
     }
+    // Write back after each item to minimize duplication on crashes
+    write(remain)
   }
-  write(remain)
 }
 
 export function setupFlushListeners() {
@@ -60,4 +62,3 @@ export function setupFlushListeners() {
     window.removeEventListener('visibilitychange', onVis)
   }
 }
-

@@ -9,7 +9,7 @@ export default function LearnTopPage() {
   const router = useRouter();
 
   const startLearning = (moduleId: string) => {
-    router.push(`/learn?module=${moduleId}`);
+    router.push(`/learn?module=${moduleId}&source=learn-top`);
   };
 
   const openSubject = (subject: string) => {
@@ -21,7 +21,7 @@ export default function LearnTopPage() {
   };
 
   const handleQuickAction = (action: string) => {
-    router.push('/learn?module=quad-basic');
+    router.push('/learn?module=quad-basic&source=learn-top');
   };
 
   return (

@@ -8,7 +8,8 @@ import { AssignmentWizard } from '@/components/teacher/AssignmentWizard'
 import { AssignmentList } from '@/components/teacher/AssignmentList'
 import { StudentTable } from '@/components/teacher/StudentTable'
 import { QuickActions } from '@/components/teacher/QuickActions'
-import { ClassCompare } from '@/components/teacher/ClassCompare'
+import dynamic from 'next/dynamic'
+const ClassCompare = dynamic(() => import('@/components/teacher/ClassCompare').then(m => m.ClassCompare), { ssr: false })
 import { Button } from '@/components/ui/button'
 import './teacher-dashboard.css'
 

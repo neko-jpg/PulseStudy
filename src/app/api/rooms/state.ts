@@ -36,7 +36,7 @@ export function joinRoom(id: string, name?: string) {
 export function leaveRoom(id: string) {
   const room = getRoom(id)
   if (!room) return
-  // no-op for MVP; could trim members
+  // MVP: no-op. Could trim members by ID later.
 }
 
 export function addStamp(id: string, type: StampType) {
@@ -51,7 +51,7 @@ export function askQuiz(id: string) {
   const idx = (room.quiz?.idx ?? 0) + 1
   room.quiz = {
     idx,
-    q: 'y=2x²-4x+1 の頂点は？',
+    q: 'What is the vertex of y = 2x^2 - 4x + 1?',
     choices: ['(1,-1)', '(2,1)', '(1,2)', '(-1,2)'],
   }
 }

@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { CheckCircle2, XCircle, ArrowLeft, Brain, HelpCircle } from 'lucide-react'
 import type { ModuleDoc } from '@/lib/types'
 import { useLearnStore } from '@/store/learn'
-import { track } from '@/lib/analytics'
+import { track, trackFlow, trackStepView, trackSubmit } from '@/lib/analytics'
 import Link from 'next/link'
 import { enqueue, flush, setupFlushListeners } from '@/lib/quizQueue'
 import { useToast } from '@/hooks/use-toast'
@@ -26,6 +26,7 @@ export default function LearnPage() {
   const qHeadingRef = useRef<HTMLDivElement | null>(null)
   const [aiFeedback, setAiFeedback] = useState<string | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
+  const [nextModule, setNextModule] = useState<string | null>(null)
 
   const [hideHint, setHideHint] = useState(false)
   const {
@@ -69,7 +70,7 @@ export default function LearnPage() {
         if (!active) return
         setDoc(json)
         init(json.id)
-        track({ name: 'module_step_view', props: { step: 'explain', idx: 0, moduleId: json.id } })
+        trackStepView(json.id, 0, 'explain')
       } catch (e: any) {
         setError(e?.name === 'AbortError' ? 'timeout' : 'network')
       } finally {
@@ -143,6 +144,25 @@ export default function LearnPage() {
     }
   }, [step, idx, selected, doc])
 
+  // Suggest next module when incorrect on result
+  useEffect(() => {
+    let cancelled = false
+    async function loadTop() {
+      try {
+        if (!doc) return
+        const it = doc.items[idx]
+        if (!(step === 'result' && selected != null && it && selected !== it.answer)) return
+        const res = await fetch('/api/analytics', { cache: 'no-store' })
+        if (!res.ok) return
+        const j = await res.json()
+        const top = (j?.top3 && j.top3[0]) || null
+        if (!cancelled) setNextModule(top)
+      } catch { /* noop */ }
+    }
+    loadTop()
+    return () => { cancelled = true }
+  }, [step, idx, selected, doc])
+
   function onGoHome() {
     router.push('/home')
   }
@@ -156,7 +176,7 @@ export default function LearnPage() {
     }
     nextStep(doc.items.length)
     const nowStep = step === 'result' ? 'explain' : step === 'quiz' ? 'result' : 'quiz'
-    track({ name: 'module_step_view', props: { step: nowStep, idx: step === 'result' ? idx + 1 : idx, moduleId } })
+    trackStepView(moduleId, step === 'result' ? idx + 1 : idx, nowStep)
   }
 
   async function onSubmit() {
@@ -175,7 +195,7 @@ export default function LearnPage() {
       enqueue({ moduleId, idx, selected, correct: isCorrect, ts: Date.now() })
     }
     markResult(isCorrect ? 1 : 0)
-    track({ name: 'quiz_submit', props: { correct: isCorrect, idx, moduleId } })
+    trackSubmit(moduleId, idx, isCorrect)
     setSubmitting(false)
     setStep('result')
   }
@@ -186,7 +206,7 @@ export default function LearnPage() {
   }
 
   function onFlow(kind: 'focused' | 'bored' | 'confused') {
-    track({ name: `suggest_stop_${kind}` })
+    trackFlow(moduleId, idx, kind)
   }
 
   if (loading) {
@@ -203,6 +223,13 @@ export default function LearnPage() {
               <Skeleton className="h-8 w-full" />
               <Skeleton className="h-8 w-full" />
             </div>
+            {step === 'result' && nextModule && (
+              <div className="mt-2">
+                <Link href={`/learn?module=${nextModule}&source=retry`} className="text-sm underline">
+                  次の一手: 苦手を克服する（おすすめ）
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -285,7 +312,7 @@ export default function LearnPage() {
                 <ul className="list-disc pl-5 mb-4">
                   {doc.explain.map((t, i) => (<li key={i}>{t}</li>))}
                 </ul>
-                <Button onClick={() => { nextStep(doc.items.length); track({ name: 'module_step_view', props: { step: 'quiz', idx, moduleId } }) }}>問題へ</Button>
+                <Button onClick={() => { nextStep(doc.items.length); trackStepView(moduleId, idx, 'quiz') }}>問題へ</Button>
               </div>
             )}
 

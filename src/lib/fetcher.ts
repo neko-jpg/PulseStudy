@@ -9,14 +9,23 @@ export async function fetchJson<T = any>(url: string, opts: FetchOptions = {}): 
     try {
       const res = await fetch(url, { ...init, signal: controller.signal, cache: 'no-store' })
       clearTimeout(t)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        const err: any = new Error(`HTTP ${res.status}`)
+        err.status = res.status
+        throw err
+      }
       return (await res.json()) as T
     } catch (e) {
       clearTimeout(t)
       lastErr = e
-      if (attempt < retries) await new Promise((r) => setTimeout(r, retryDelayMs * (attempt + 1)))
+      if (attempt < retries) {
+        const status = (lastErr as any)?.status || 0
+        const base = retryDelayMs * Math.pow(2, attempt)
+        const jitter = Math.random() * 150
+        const delay = [429, 503].includes(status) ? base + jitter : Math.min(base + jitter, 1200)
+        await new Promise((r) => setTimeout(r, delay))
+      }
     }
   }
   throw lastErr
 }
-

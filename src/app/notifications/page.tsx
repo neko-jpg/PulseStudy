@@ -168,7 +168,7 @@ function NotificationsInner() {
                     <div className="notification-time">{Math.max(1, Math.round((Date.now() - n.ts)/60000))}分前</div>
                     <div className="notification-actions">
                       {n.type === 'learning' ? (
-                        <Link href={`/learn?module=${n.moduleId ?? 'last'}`} className="action-button button-primary" aria-label="1タップで学習開始">学習する</Link>
+                        <Link href={`/learn?module=${n.moduleId ?? 'last'}&source=notif`} className="action-button button-primary" aria-label="1タップで学習開始">学習する</Link>
                       ) : null}
                       <button className="action-button button-secondary ml-2" onClick={() => markRead(n.id, !n.unread)} aria-label={n.unread ? '既読にする' : '未読に戻す'}>
                         {n.unread ? '既読' : '未読へ'}

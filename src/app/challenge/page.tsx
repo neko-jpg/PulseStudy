@@ -5,7 +5,8 @@ import type { ChallengeItem, ChallengeKind, ChallengeProgress } from '@/lib/type
 import { useRouter } from 'next/navigation'
 import { ChallengeTabs } from '@/components/challenge/ChallengeTabs'
 import { ChallengeCard } from '@/components/challenge/ChallengeCard'
-import { ProgressModal } from '@/components/challenge/ProgressModal'
+import dynamic from 'next/dynamic'
+const ProgressModal = dynamic(() => import('@/components/challenge/ProgressModal').then(m => m.ProgressModal), { ssr: false })
 import { SkeletonList } from '@/components/common/SkeletonList'
 import { ErrorState } from '@/components/common/ErrorState'
 import { Empty } from '@/components/common/Empty'

@@ -330,6 +330,11 @@
   border-top: 1px solid hsl(var(--border));
   flex-shrink: 0;
   position: relative;
+  /* allow vertical resizing by user */
+  resize: vertical;
+  min-height: 180px;
+  max-height: 60vh;
+  overflow: auto;
 }
 
 .chat-resizer {

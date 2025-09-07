@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { useTeacherStore } from '@/store/teacher'
 import { track } from '@/lib/analytics'
 import { useState } from 'react'
-import { AssignmentAnalyticsModal } from './AssignmentAnalyticsModal'
+import dynamic from 'next/dynamic'
+const AssignmentAnalyticsModal = dynamic(() => import('./AssignmentAnalyticsModal').then(m => m.AssignmentAnalyticsModal), { ssr: false })
 
 export function AssignmentList() {
   const items = useTeacherStore(s => s.assignments)

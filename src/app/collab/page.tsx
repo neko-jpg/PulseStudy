@@ -34,6 +34,14 @@ function CollabInner() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const drawingRef = useRef<{ drawing: boolean; color: string; last?: { x: number; y: number } }>({ drawing: false, color: '#111827' })
   const [penColor, setPenColor] = useState('#111827')
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const zoomRef = useRef(1)
+  const panRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const panningRef = useRef<{ active: boolean; startX: number; startY: number; origX: number; origY: number }>({ active: false, startX: 0, startY: 0, origX: 0, origY: 0 })
+  const [chatHeight, setChatHeight] = useState<number>(280)
+  const chatHeightRef = useRef<number>(280)
+  useEffect(() => { chatHeightRef.current = chatHeight }, [chatHeight])
 
   // chat
   const [chatInput, setChatInput] = useState('')
@@ -50,6 +58,7 @@ function CollabInner() {
   useEffect(() => {
     let active = true
     let pollTimer: any
+    let visHandler: any = null
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8000)
     async function enter() {
@@ -69,16 +78,41 @@ function CollabInner() {
         track({ name: 'room_join', props: { id } })
         if (!active) return
         setRoom({ id, topic, members: [], stamps: { like: 0, ask: 0, idea: 0 } })
-        // poll state
+        // poll state with visibility-aware backoff
         let delay = 2000
+        const maxDelay = 10000
+        const schedule = () => {
+          if (!active) return
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+          pollTimer = setTimeout(loop, delay)
+        }
         async function loop() {
           try {
             const r = await fetch('/api/rooms/' + id + '/state', { cache: 'no-store' })
-            if (r.ok) { const js = await r.json(); setRoom(js); delay = 2000 } else { delay = Math.min(10000, delay * 1.5) }
-          } catch { delay = Math.min(10000, delay * 1.5) }
-          pollTimer = setTimeout(loop, delay)
+            if (r.ok) {
+              const js = await r.json(); setRoom(js)
+              delay = 2000
+            } else {
+              delay = Math.min(maxDelay, Math.floor(delay * 1.5))
+            }
+          } catch {
+            delay = Math.min(maxDelay, Math.floor(delay * 1.5))
+          }
+          schedule()
         }
+        const onVis = () => {
+          if (document.visibilityState === 'visible') {
+            clearTimeout(pollTimer)
+            delay = Math.min(delay, 2000)
+            loop()
+          } else {
+            clearTimeout(pollTimer)
+          }
+        }
+        document.addEventListener('visibilitychange', onVis)
+        visHandler = onVis
         loop()
+        // cleanup for visibility listener will be in effect cleanup below
       } catch (e: any) {
         if (!active) return
         if (e?.name === 'AbortError') setError('timeout')
@@ -88,7 +122,13 @@ function CollabInner() {
       }
     }
     enter()
-    return () => { active = false; clearTimeout(timeout); controller.abort(); clearTimeout(pollTimer) }
+    return () => {
+      active = false
+      clearTimeout(timeout)
+      controller.abort()
+      clearTimeout(pollTimer)
+      if (visHandler) document.removeEventListener('visibilitychange', visHandler)
+    }
   }, [params, displayName])
 
   // setup whiteboard canvas
@@ -111,7 +151,9 @@ function CollabInner() {
       const t = (ev as TouchEvent).touches && (ev as TouchEvent).touches[0]
       const clientX = t ? t.clientX : (ev as MouseEvent).clientX
       const clientY = t ? t.clientY : (ev as MouseEvent).clientY
-      return { x: clientX - rect.left, y: clientY - rect.top }
+      // account for zoom; rect already reflects pan via transform
+      const z = zoomRef.current || 1
+      return { x: (clientX - rect.left) / z, y: (clientY - rect.top) / z }
     }
     const onDown = (e: MouseEvent | TouchEvent) => { drawingRef.current.drawing = true; drawingRef.current.last = getPos(e) }
     const onMove = (e: MouseEvent | TouchEvent) => {
@@ -146,6 +188,74 @@ function CollabInner() {
   }, [])
 
   useEffect(() => { drawingRef.current.color = penColor }, [penColor])
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+  useEffect(() => { panRef.current = pan }, [pan])
+
+  // apply CSS transform for zoom/pan without changing event handlers
+  useEffect(() => {
+    const c = canvasRef.current
+    if (!c) return
+    c.style.transformOrigin = 'top left'
+    c.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
+  }, [zoom, pan])
+
+  // whiteboard zoom & pan handlers
+  function onWheelWhiteboard(e: React.WheelEvent<HTMLDivElement>) {
+    if (!e.ctrlKey) return
+    e.preventDefault()
+    const next = Math.min(3, Math.max(0.5, zoom + (e.deltaY < 0 ? 0.1 : -0.1)))
+    setZoom(Number(next.toFixed(2)))
+  }
+  function onMouseDownWhiteboard(e: React.MouseEvent<HTMLDivElement>) {
+    if (!e.altKey && e.button !== 1) return
+    panningRef.current = { active: true, startX: e.clientX, startY: e.clientY, origX: panRef.current.x, origY: panRef.current.y }
+  }
+  function onMouseMoveWhiteboard(e: React.MouseEvent<HTMLDivElement>) {
+    if (!panningRef.current.active) return
+    const dx = e.clientX - panningRef.current.startX
+    const dy = e.clientY - panningRef.current.startY
+    setPan({ x: panningRef.current.origX + dx, y: panningRef.current.origY + dy })
+  }
+  function onMouseUpWhiteboard() { panningRef.current.active = false }
+
+  // attach handlers to container
+  useEffect(() => {
+    const c = canvasRef.current
+    const parent = c?.parentElement
+    if (!parent) return
+    const onWheel = (e: WheelEvent) => onWheelWhiteboard(e as any)
+    const onDown = (e: MouseEvent) => onMouseDownWhiteboard(e as any)
+    const onMove = (e: MouseEvent) => onMouseMoveWhiteboard(e as any)
+    const onUp = (_e: MouseEvent) => onMouseUpWhiteboard()
+    parent.addEventListener('wheel', onWheel, { passive: false })
+    parent.addEventListener('mousedown', onDown)
+    parent.addEventListener('mousemove', onMove)
+    parent.addEventListener('mouseup', onUp)
+    return () => {
+      parent.removeEventListener('wheel', onWheel as any)
+      parent.removeEventListener('mousedown', onDown)
+      parent.removeEventListener('mousemove', onMove)
+      parent.removeEventListener('mouseup', onUp)
+    }
+  }, [])
+
+  // chat height drag handle
+  function onStartChatResize(e: React.MouseEvent<HTMLDivElement>) {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = chatHeightRef.current
+    const mm = (ev: MouseEvent) => {
+      const dy = ev.clientY - startY
+      const next = Math.min(window.innerHeight * 0.6, Math.max(180, startH - dy))
+      setChatHeight(next)
+    }
+    const mu = () => {
+      window.removeEventListener('mousemove', mm)
+      window.removeEventListener('mouseup', mu)
+    }
+    window.addEventListener('mousemove', mm)
+    window.addEventListener('mouseup', mu)
+  }
 
   // shortcuts
   useEffect(() => {
@@ -256,6 +366,16 @@ function CollabInner() {
           <div className="room-meta"><span>参加者 {members.length}</span></div>
         </div>
         <div className="room-actions">
+          <input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            onBlur={() => { try { localStorage.setItem('displayName', displayName || '') } catch {} }}
+            placeholder="ハンドル名"
+            aria-label="ハンドル名"
+            className="border rounded px-2 py-1 text-sm mr-2"
+            style={{ minWidth: 140 }}
+            maxLength={24}
+          />
           <button className="icon-button" onClick={() => setSidebarOpen((o) => !o)} aria-label="参加者パネル切替">☰</button>
           <button className="icon-button" onClick={shareRoom} aria-label="共有">⇪</button>
           <Button variant="outline" onClick={onLeave}>退出</Button>
@@ -296,15 +416,23 @@ function CollabInner() {
               <button className={`tool-button${penColor === '#2563eb' ? ' active' : ''}`} onClick={() => setPenColor('#2563eb')} title="ペン(青)" style={{ color: '#2563eb' }}>●</button>
               <button className="tool-button" onClick={() => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (!ctx) return; ctx.clearRect(0,0,c.width,c.height) }} title="クリア">↺</button>
             </div>
+            <div className="whiteboard-zoom-controls" role="group" aria-label="ズーム">
+              <button className="tool-button" onClick={() => setZoom((z) => Math.min(3, +(z + 0.1).toFixed(2)))} aria-label="拡大">＋</button>
+              <button className="tool-button" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))} aria-label="縮小">－</button>
+              <button className="tool-button" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} aria-label="リセット">⟲</button>
+            </div>
+            <div style={{ position: 'absolute', top: 16, right: 84 }}>
+              <button className="tool-button" onClick={() => setZoom((z) => (z < 1.5 ? 2 : 1))} aria-label={zoom < 1.5 ? '拡大' : '縮小'}>{zoom < 1.5 ? '＋' : '－'}</button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3">
             <div className="rounded border bg-white p-3">
               <div className="text-sm font-semibold mb-2">スタンプ</div>
               <div className="flex items-center gap-2">
-                <Button onClick={() => sendStamp('like')}>👍 いいね ({stamps.like})</Button>
-                <Button onClick={() => sendStamp('ask')} variant="secondary">❓ 質問 ({stamps.ask})</Button>
-                <Button onClick={() => sendStamp('idea')} variant="outline">💡 ひらめき ({stamps.idea})</Button>
+                <Button onClick={() => sendStamp('like')} aria-label="いいねスタンプ">👍 いいね ({stamps.like})</Button>
+                <Button onClick={() => sendStamp('ask')} variant="secondary" aria-label="質問スタンプ">❓ 質問 ({stamps.ask})</Button>
+                <Button onClick={() => sendStamp('idea')} variant="outline" aria-label="アイデアスタンプ">💡 ひらめき ({stamps.idea})</Button>
               </div>
               <div className="text-xs text-muted-foreground mt-2">ショートカット: 1 / 2 / 3</div>
             </div>
@@ -342,7 +470,7 @@ function CollabInner() {
             </div>
           </div>
 
-          <div className="chat-container" style={{ height: 280 }}>
+          <div className="chat-container" aria-label="チャット">
             <div className="chat-header">
               <div className="chat-tabs">
                 <div className="chat-tab active">メッセージ</div>
