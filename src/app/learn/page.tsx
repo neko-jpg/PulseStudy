@@ -1,329 +1,128 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import {
-  ArrowLeft,
-  Timer,
-  Book,
-  BrainCircuit,
-  Video,
-  Play,
-  Lightbulb,
-  ThumbsUp,
-  Pause,
-  Home,
-  BookOpen,
-  Target,
-  Users,
-  BarChart,
-  User,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useModuleStore } from '@/stores/module';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowLeft, BookOpen, CheckCircle, Pencil, ArrowRight, ThumbsUp, XCircle, Loader2, Trophy } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import './learn.css';
 
-export default function LearnPage() {
-  const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [showNextButton, setShowNextButton] = useState(false);
-  const [showAIResponse, setShowAIResponse] = useState(false);
-  const [aiResponseText, setAiResponseText] = useState('');
-  const [showInterventionModal, setShowInterventionModal] = useState(false);
+// --- DUMMY DATA ---
+const DUMMY_QUESTIONS = {
+  check: [{
+    id: 'quad-1-check',
+    text: '二次関数 y = ax² + bx + c のグラフで、係数 a が正 (a > 0) の場合、グラフはどちらに凸（とつ）ですか？',
+    type: 'SC',
+    options: [
+      { id: 'check-opt-a', label: '上に凸' },
+      { id: 'check-opt-b', label: '下に凸' },
+    ],
+  }],
+  practice: [
+    { id: 'quad-1-practice-1', text: '二次関数 y = x² - 4x + 3 を因数分解した形はどれ？', type: 'SC', options: [{id:'p1-opt-a', label:'(x-1)(x-3)'},{id:'p1-opt-b', label:'(x+1)(x+3)'}] },
+    { id: 'quad-1-practice-2', text: 'y = 2(x-1)² + 5 の頂点の座標は？', type: 'SC', options: [{id:'p2-opt-a', label:'(-1, 5)'},{id:'p2-opt-b', label:'(1, -5)'},{id:'p2-opt-c', label:'(1, 5)'}] },
+    { id: 'quad-1-practice-3', text: 'y = -x² のグラフはどれ？', type: 'SC', options: [{id:'p3-opt-a', label:'上に凸'},{id:'p3-opt-b', label:'下に凸'}] }
+  ]
+};
 
-  const totalSteps = 3;
-  const questions = [
-    {
-      text: '二次関数 y=2x²-4x+1 の頂点の座標はどれですか？',
-      options: ['(1, -1)', '(2, 1)', '(1, 2)', '(-1, 2)'],
-      answer: '(1, -1)',
-      explanation:
-        '頂点のx座標は -b/2a = 4/4 = 1 です。これを元の式に代入すると y=2(1)²-4(1)+1 = -1 となります。よって頂点は (1, -1) です。',
-    },
-    {
-      text: '二次関数 y=-x²+6x-5 のグラフはどちらに凸ですか？',
-      options: ['上に凸', '下に凸', 'どちらでもない', '直線になる'],
-      answer: '上に凸',
-      explanation:
-        'x²の係数 a が負の数 (-1) なので、グラフは上に凸の放物線になります。',
-    },
-    {
-      text: 'y=x² のグラフをx軸方向に2, y軸方向に3だけ平行移動したグラフの式は？',
-      options: [
-        'y=(x-2)²+3',
-        'y=(x+2)²+3',
-        'y=(x-2)²-3',
-        'y=(x+3)²-2',
-      ],
-      answer: 'y=(x-2)²+3',
-      explanation:
-        'x軸方向にp, y軸方向にqだけ平行移動した場合、式は y=(x-p)²+q となります。',
-    },
-  ];
+// --- COACH BAR COMPONENT ---
+const CoachBar = ({ onContinue, onStop }: { onContinue: () => void, onStop: () => void }) => (
+  <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-11/12 max-w-md z-50 animate-in slide-in-from-bottom-10 duration-500">
+    <Card className="bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 shadow-lg">
+      <CardHeader><CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-200"><Trophy className="h-6 w-6" />素晴らしい！波に乗っていますね！</CardTitle></CardHeader>
+      <CardContent className="flex flex-col sm:flex-row gap-2"><Button onClick={onStop} className="flex-1" variant="outline">進捗を見る</Button><Button onClick={onContinue} className="flex-1">もう1問</Button></CardContent>
+    </Card>
+  </div>
+);
+
+// --- REUSABLE QUIZ COMPONENT ---
+const QuizArea = ({ questions, onComplete, isPractice = false }: { questions: any[], onComplete: () => void, isPractice?: boolean }) => {
+  const router = useRouter();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ correct: boolean, explain?: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { streak, incrementStreak, resetStreak } = useModuleStore();
+  const [showCoachBar, setShowCoachBar] = useState(false);
+
+  const currentQuestion = questions[currentIndex];
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowInterventionModal(true);
-    }, 15000); // 15秒後にモーダル表示
+    if (isPractice && streak === 3) { setShowCoachBar(true); }
+  }, [streak, isPractice]);
 
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleGoBack = () => {
-    if (confirm('学習を中断しますか？\n進捗は自動的に保存されます。')) {
-      router.push('/home');
-    }
+  const handleSubmit = async () => {
+    if (!selectedAnswer) return;
+    setIsSubmitting(true);
+    const res = await fetch('/api/quiz/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questionId: currentQuestion.id, answer: selectedAnswer }), });
+    const result = await res.json();
+    setFeedback(result);
+    if (result.correct) { incrementStreak(); } else { resetStreak(); }
+    setIsSubmitting(false);
   };
-
-  const handleSelectOption = (option: string) => {
-    if (selectedOption !== null) return;
-
-    setSelectedOption(option);
-    const correct = option === questions[currentStep - 1].answer;
-    setIsCorrect(correct);
-    setShowFeedback(true);
-    setShowNextButton(true);
-  };
-
-  const handleNextQuestion = () => {
-    if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1);
-      setSelectedOption(null);
-      setIsCorrect(null);
-      setShowFeedback(false);
-      setShowNextButton(false);
-      const progressFill = document.getElementById('progress-fill');
-      if (progressFill) {
-        progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
-      }
-    } else {
-      alert('すべての問題を完了しました！');
-      router.push('/home');
-    }
-  };
-
-  const handleShowAIResponse = (question: string) => {
-    setAiResponseText(
-      `${question} に対する回答です。AIが、あなたの疑問に答えます。`
-    );
-    setShowAIResponse(true);
+  const handleNext = () => {
+    if (currentIndex < questions.length - 1) { setCurrentIndex(currentIndex + 1); setSelectedAnswer(null); setFeedback(null); } else { onComplete(); }
   };
 
   return (
-    <>
-    <div className="module-container">
-      <header className="module-header">
-        <div className="header-left">
-          <button className="back-button" onClick={handleGoBack}>
-            <ArrowLeft size={20} />
-          </button>
-          <div className="module-info">
-            <h1>二次関数のグラフをマスター</h1>
-            <div className="module-meta">
-              <span>数学</span>
-              <span>
-                <Timer size={14} className="inline" /> 5分
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flow-meter" onClick={() => alert('集中度: 78%')}>
-          <BrainCircuit size={16} />
-          <div className="flow-value">78%</div>
-        </div>
-      </header>
-
-      <div className="progress-container">
-        <div className="progress-bar">
-          <div
-            className="progress-fill"
-            id="progress-fill"
-            style={{ width: `${((currentStep - 1) / totalSteps) * 100}%` }}
-          ></div>
-        </div>
-        <div className="progress-steps">
-          <span>解説</span>
-          <span>理解チェック</span>
-          <span>演習</span>
-        </div>
-      </div>
-
-      <main className="module-content">
-        <section className="explanation-section">
-          <div className="video-container">
-            <div className="video-placeholder">
-              <Video size={48} />
-            </div>
-            <div className="video-controls">
-              <button className="play-button">
-                <Play size={20} color="var(--primary)" />
-              </button>
-              <div className="video-time">0:45 / 1:30</div>
-            </div>
-          </div>
-
-          <div className="explanation-text">
-            <h2>二次関数のグラフの性質</h2>
-            <p>
-              二次関数 y=ax²+bx+c のグラフは放物線と呼ばれる曲線です。
-            </p>
-            <p>
-              a &gt; 0 のとき、グラフは下に凸（とつ）の形になり、a &lt; 0
-              のときは上に凸の形になります。
-            </p>
-            <p>
-              放物線の頂点は関数の最大値または最小値を取る点で、その座標は平方完成によって求めることができます。
-            </p>
-          </div>
-        </section>
-
-        <section className="ai-qa-section">
-          <div className="ai-qa-header">
-            <div className="ai-avatar">
-              <BrainCircuit size={16} />
-            </div>
-            <div className="ai-title">学習アシスタントに質問</div>
-          </div>
-
-          <div className="qa-chip-container">
-            <button
-              className="qa-chip"
-              onClick={() => handleShowAIResponse('頂点の求め方を教えて')}
-            >
-              頂点の求め方を教えて
-            </button>
-            <button
-              className="qa-chip"
-              onClick={() => handleShowAIResponse('平方完成とは？')}
-            >
-              平方完成とは？
-            </button>
-            <button
-              className="qa-chip"
-              onClick={() =>
-                handleShowAIResponse('aの値でグラフはどう変わる？')
-              }
-            >
-              aの値でグラフはどう変わる？
-            </button>
-          </div>
-
-          {showAIResponse && (
-            <div className="ai-response show">
-              <p>{aiResponseText}</p>
-              <div
-                className="read-more"
-                onClick={() => alert('より詳細な説明を表示します...')}
-              >
-                くわしく読む
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section className="exercise-section">
-          <div className="exercise-header">
-            <div className="exercise-title">理解度チェック</div>
-            <div className="exercise-progress">
-              {currentStep}/{totalSteps}
-            </div>
-          </div>
-
-          <div className="question-container">
-            <div className="question-text">
-              {questions[currentStep - 1].text}
-            </div>
-
-            <div className="options-container">
-              {questions[currentStep - 1].options.map((option, index) => (
-                <button
-                  key={index}
-                  className={`option ${
-                    selectedOption === option && isCorrect === true
-                      ? 'correct'
-                      : ''
-                  } ${
-                    selectedOption === option && isCorrect === false
-                      ? 'incorrect'
-                      : ''
-                  } ${
-                    showFeedback &&
-                    option === questions[currentStep - 1].answer &&
-                    isCorrect === false
-                      ? 'correct'
-                      : ''
-                  }`}
-                  onClick={() => handleSelectOption(option)}
-                  disabled={showFeedback}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-
-            {showFeedback && (
-              <div
-                className={`feedback-container show ${
-                  isCorrect ? 'feedback-correct' : 'feedback-incorrect'
-                }`}
-              >
-                <div className="feedback-title">
-                  {isCorrect ? '正解！' : '不正解'}
-                </div>
-                <p>{questions[currentStep - 1].explanation}</p>
-              </div>
-            )}
-
-            {showNextButton && (
-              <button className="next-button show" onClick={handleNextQuestion}>
-                {currentStep === totalSteps ? '完了する' : '次の問題'}
-              </button>
-            )}
-          </div>
-        </section>
-      </main>
-
-      <footer className="module-footer">
-        <button className="footer-button button-outline">
-          <Pause size={16} /> 一時停止
-        </button>
-        <button className="footer-button button-primary">
-          <ThumbsUp size={16} /> 理解した
-        </button>
-      </footer>
-
-      {showInterventionModal && (
-        <div className="intervention-modal show">
-          <div className="modal-content">
-            <div className="modal-icon">😴</div>
-            <div className="modal-title">集中力が低下しています</div>
-            <div className="modal-text">
-              少し休憩するか、別の学習方法を試してみませんか？
-            </div>
-            <div className="modal-buttons">
-              <button
-                className="modal-button button-light"
-                onClick={() => setShowInterventionModal(false)}
-              >
-                休憩する
-              </button>
-              <button
-                className="modal-button button-accent"
-                onClick={() => {
-                  alert('クイズ形式やグループ学習をおすすめします！');
-                  setShowInterventionModal(false);
-                }}
-              >
-                別の方法を提案
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="space-y-6">
+      {isPractice && showCoachBar && <CoachBar onContinue={() => setShowCoachBar(false)} onStop={() => router.push('/analytics')} />}
+      <p className="text-sm text-muted-foreground">問題 {currentIndex + 1} / {questions.length} (連続正解: {streak})</p>
+      <p className="font-semibold text-lg">{currentQuestion.text}</p>
+      <RadioGroup value={selectedAnswer ?? ''} onValueChange={setSelectedAnswer} disabled={!!feedback}>
+        {currentQuestion.options.map((opt: any) => (
+          <div key={opt.id} className="flex items-center space-x-2"><RadioGroupItem value={opt.label} id={opt.id} /><Label htmlFor={opt.id}>{opt.label}</Label></div>
+        ))}
+      </RadioGroup>
+      {feedback && (<Alert variant={feedback.correct ? "default" : "destructive"}>{feedback.correct ? <ThumbsUp className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}<AlertTitle>{feedback.correct ? '正解！' : '不正解'}</AlertTitle>{feedback.explain && <AlertDescription>{feedback.explain}</AlertDescription>}</Alert>)}
+      <div className="flex justify-end">{!feedback ? (<Button onClick={handleSubmit} disabled={!selectedAnswer || isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}回答する</Button>) : (<Button onClick={handleNext}>{currentIndex === questions.length - 1 ? '完了' : '次の問題へ'} <ArrowRight className="ml-2 h-4 w-4" /></Button>)}</div>
     </div>
-      </>
+  );
+};
+
+// --- PANELS (omitting ExplainPanel for brevity) ---
+const ExplainPanel = ({ onNext }: { onNext: () => void }) => (<Card className="mt-4"><CardHeader><CardTitle className="flex items-center"><BookOpen className="mr-2 h-5 w-5" /> 1. 解説</CardTitle></CardHeader><CardContent><div className="text-center pt-4 border-t"><Button size="lg" onClick={onNext}>理解チェックへ進む <ArrowRight className="ml-2 h-4 w-4" /></Button></div></CardContent></Card>);
+const CheckPanel = ({ onNext }: { onNext: () => void }) => (<Card className="mt-4"><CardHeader><CardTitle>2. 理解チェック</CardTitle></CardHeader><CardContent><QuizArea questions={DUMMY_QUESTIONS.check} onComplete={onNext} /></CardContent></Card>);
+const PracticePanel = ({ onComplete }: { onComplete: () => void }) => (<Card className="mt-4"><CardHeader><CardTitle>3. 演習</CardTitle></CardHeader><CardContent><QuizArea questions={DUMMY_QUESTIONS.practice} onComplete={onComplete} isPractice={true} /></CardContent></Card>);
+
+// --- MAIN PAGE COMPONENT ---
+export default function LearnPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const moduleId = searchParams.get('module');
+  const { step, setStep, setModuleId, resetStreak } = useModuleStore();
+
+  useEffect(() => {
+    if (moduleId) setModuleId(moduleId);
+    resetStreak();
+    return () => { setStep('explain'); resetStreak(); };
+  }, [moduleId, setModuleId, setStep, resetStreak]);
+
+  const handlePracticeComplete = () => { alert('演習完了！ホームに戻ります。'); router.push('/home'); };
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
+      <header className="flex items-center p-2 border-b bg-background z-20"><Button variant="ghost" size="icon" onClick={() => router.push('/home')}><ArrowLeft /></Button><h1 className="ml-2 font-bold text-md sm:text-lg truncate">{moduleId ? `学習中: ${moduleId}` : '学習モジュール'}</h1></header>
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <Tabs value={step} onValueChange={(value) => setStep(value as any)} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 h-14">
+            <TabsTrigger value="explain" className="flex-col sm:flex-row gap-1"><BookOpen className="h-4 w-4" /> 解説</TabsTrigger>
+            <TabsTrigger value="check" className="flex-col sm:flex-row gap-1"><CheckCircle className="h-4 w-4" /> 理解チェック</TabsTrigger>
+            <TabsTrigger value="practice" className="flex-col sm:flex-row gap-1"><Pencil className="h-4 w-4" /> 演習</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+      <main className="flex-1 p-4 overflow-y-auto">
+        {step === 'explain' && <ExplainPanel onNext={() => setStep('check')} />}
+        {step === 'check' && <CheckPanel onNext={() => setStep('practice')} />}
+        {step === 'practice' && <PracticePanel onComplete={handlePracticeComplete} />}
+      </main>
+    </div>
   );
 }

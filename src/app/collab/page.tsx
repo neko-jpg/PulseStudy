@@ -1,395 +1,105 @@
-
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import Link from 'next/link';
-import {
-  Mic,
-  Video,
-  LogOut,
-  ThumbsUp,
-  Hand,
-  Pencil,
-  Circle,
-  Square,
-  Triangle,
-  Type,
-  Undo,
-  Clock,
-  ArrowRight,
-  Lightbulb,
-  Check,
-  RefreshCw,
-  Home,
-  BookOpen,
-  Target,
-  Users,
-  BarChart,
-  User,
-  Maximize,
-  Minimize,
-  MoreHorizontal,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
-import './collab.css';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Loader2, PlusCircle, LogIn, Network, CheckCircle, XCircle } from 'lucide-react';
+import { testDirectICE } from '@/lib/rtc';
 import { cn } from '@/lib/utils';
 
-export default function CollabPage() {
-  const whiteboardRef = useRef<HTMLCanvasElement>(null);
-  const [isHandRaised, setIsHandRaised] = useState(false);
-  const [isZoomed, setIsZoomed] = useState(false);
-  const [isParticipantsSidebarOpen, setIsParticipantsSidebarOpen] = useState(true);
+export default function CollabLobbyPage() {
+  const router = useRouter();
+  const [roomId, setRoomId] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
-  // For chat resizing
-  const chatRef = useRef<HTMLDivElement>(null);
-  const [chatHeight, setChatHeight] = useState(250);
-  const isResizing = useRef(false);
-  const lastY = useRef(0);
+  // State for pre-flight check
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<boolean | null>(null);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    isResizing.current = true;
-    lastY.current = e.clientY;
-    document.body.style.cursor = 'ns-resize';
-    document.body.style.userSelect = 'none';
+  const handleCreateRoom = async () => { /* ... as before ... */
+    setIsCreating(true);
+    try {
+      const res = await fetch('/api/rooms', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to create room');
+      const { roomId: newRoomId } = await res.json();
+      router.push(`/collab/${newRoomId}`);
+    } catch (error) {
+      console.error("Failed to create room:", error);
+      setIsCreating(false);
+    }
   };
 
-  const handleMouseUp = useCallback(() => {
-    isResizing.current = false;
-    document.body.style.cursor = 'default';
-    document.body.style.userSelect = 'auto';
-  }, []);
+  const handleJoinRoom = () => { /* ... as before ... */
+    if (!roomId.trim()) return;
+    router.push(`/collab/${roomId.trim()}`);
+  };
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizing.current) return;
-    const delta = lastY.current - e.clientY;
-    lastY.current = e.clientY;
-    setChatHeight((prevHeight) => {
-        const newHeight = prevHeight + delta;
-        if (newHeight >= 100 && newHeight <= 500) { // min/max height
-            return newHeight;
-        }
-        return prevHeight;
-    });
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [handleMouseMove, handleMouseUp]);
-
-
-  useEffect(() => {
-    const canvas = whiteboardRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    function resizeCanvas() {
-      if (canvas) {
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-      }
-    }
-
-    function startDrawing(e: MouseEvent) {
-      isDrawing = true;
-      [lastX, lastY] = [e.offsetX, e.offsetY];
-    }
-
-    function draw(e: MouseEvent) {
-      if (!isDrawing || !ctx) return;
-
-      ctx.beginPath();
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#4361ee';
-
-      ctx.moveTo(lastX, lastY);
-      ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.stroke();
-
-      [lastX, lastY] = [e.offsetX, e.offsetY];
-    }
-
-    function stopDrawing() {
-      isDrawing = false;
-    }
-
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-
-    return () => {
-      window.removeEventListener('resize', resizeCanvas);
-      canvas.removeEventListener('mousedown', startDrawing);
-      canvas.removeEventListener('mousemove', draw);
-      canvas.removeEventListener('mouseup', stopDrawing);
-      canvas.removeEventListener('mouseout', stopDrawing);
-    };
-  }, []);
-
-  const handleRaiseHand = () => {
-    setIsHandRaised(!isHandRaised);
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    const result = await testDirectICE();
+    setTestResult(result);
+    setIsTesting(false);
   };
 
   return (
-    <>
-      <div className="collab-container">
-        <header className="room-header">
-          <div className="room-info">
-            <h1>数学 - 二次関数のグラフ</h1>
-            <div className="room-meta">
-              <span>レベル: 標準</span>
-              <span>参加者: 3人</span>
-            </div>
-          </div>
-          <div className="room-actions">
-            <button className="icon-button">
-              <Mic size={18} />
-            </button>
-            <button className="icon-button">
-              <Video size={18} />
-            </button>
-            <button className="icon-button">
-              <LogOut size={18} />
-            </button>
-          </div>
-        </header>
-
-        <div className={cn('room-main', isZoomed && 'zoomed-in')}>
-           <aside className={cn('participants-sidebar', isParticipantsSidebarOpen ? 'open' : 'closed')}>
-            <div className="sidebar-header">
-              <span>参加者</span>
-               <div className="flex items-center gap-2">
-                <span className="participants-count">3人</span>
-                <button
-                  className="control-button"
-                  onClick={() => setIsParticipantsSidebarOpen(!isParticipantsSidebarOpen)}
-                >
-                  {isParticipantsSidebarOpen ? (
-                    <ChevronLeft size={16} />
-                  ) : (
-                    <ChevronRight size={16} />
-                  )}
-                </button>
-              </div>
-            </div>
-            <div className="participants-list">
-              <div className="participant-card active">
-                <div className="participant-avatar">
-                  <span>A</span>
-                  <div className="participant-status"></div>
-                </div>
-                <div className="participant-info">
-                  <div className="participant-name">
-                    <span>葵さん</span>
-                    <span className="participant-role">説明中</span>
-                  </div>
-                  <div className="participant-action">二次関数を説明中</div>
-                </div>
-                <div className="participant-controls">
-                  <button className="control-button">
-                    <ThumbsUp size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="participant-card">
-                <div className="participant-avatar">
-                  <span>K</span>
-                  <div className="participant-status"></div>
-                </div>
-                <div className="participant-info">
-                  <div className="participant-name">健太さん</div>
-                  <div className="participant-action">リスニング中</div>
-                </div>
-                <div className="participant-controls">
-                  <button className="control-button">
-                    <Hand size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="participant-card">
-                <div className="participant-avatar">
-                  <span>S</span>
-                  <div className="participant-status away"></div>
-                </div>
-                <div className="participant-info">
-                  <div className="participant-name">さくらさん</div>
-                  <div className="participant-action">一時退出中</div>
-                </div>
-                <div className="participant-controls">
-                  <button className="control-button">
-                    <Hand size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <main className="room-content">
-            <div className="problem-container">
-              <div className="problem-header">
-                <div className="problem-title">
-                  二次関数 y=2x²-4x+1 の頂点の座標を求めよ
-                </div>
-                <div className="problem-timer">
-                  <Clock className="h-4 w-4" />
-                  <span>05:30</span>
-                </div>
-              </div>
-              <div className="problem-content">
-                <p>
-                  ヒント: 平方完成を使用して頂点を求めます。y=ax²+bx+c
-                  の頂点のx座標は -b/2a です。
-                </p>
-              </div>
-            </div>
-
-            <div className="whiteboard-container">
-              <canvas ref={whiteboardRef} className="whiteboard"></canvas>
-              <div className="whiteboard-tools">
-                <button className="tool-button active">
-                  <Pencil size={18} />
-                </button>
-                <button className="tool-button">
-                  <Circle size={18} />
-                </button>
-                <button className="tool-button">
-                  <Square size={18} />
-                </button>
-                <button className="tool-button">
-                  <Triangle size={18} />
-                </button>
-                <button className="tool-button">
-                  <Type size={18} />
-                </button>
-                <button className="tool-button">
-                  <Undo size={18} />
-                </button>
-                <div className="color-palette">
-                  <div
-                    className="color-option"
-                    style={{ backgroundColor: '#000000' }}
-                  ></div>
-                  <div
-                    className="color-option"
-                    style={{ backgroundColor: '#4361ee' }}
-                  ></div>
-                  <div
-                    className="color-option"
-                    style={{ backgroundColor: '#f72585' }}
-                  ></div>
-                  <div
-                    className="color-option"
-                    style={{ backgroundColor: '#4cc9f0' }}
-                  ></div>
-                </div>
-              </div>
-               <div className="whiteboard-zoom-controls">
-                <button
-                  className="tool-button"
-                  onClick={() => setIsZoomed(!isZoomed)}
-                >
-                  {isZoomed ? <Minimize size={18} /> : <Maximize size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div ref={chatRef} className="chat-container" style={{ height: `${chatHeight}px` }}>
-              <div className="chat-resizer" onMouseDown={handleMouseDown}>
-                <div className="resize-handle"></div>
-              </div>
-              <div className="chat-header">
-                <div className="chat-tabs">
-                  <div className="chat-tab active">チャット</div>
-                  <div className="chat-tab">まとめ</div>
-                </div>
-              </div>
-              <div className="chat-messages">
-                <div className="message message-system">
-                  さくらさんがルームに参加しました
-                </div>
-                <div className="message message-incoming">
-                  <div className="message-sender">健太さん</div>
-                  <div className="message-content">
-                    頂点のx座標は -b/2a で求められるんだよね？
-                  </div>
-                </div>
-                <div className="message message-outgoing">
-                  <div className="message-content">
-                    そうだよ！b=-4, a=2 だから x=4/4=1 になる
-                  </div>
-                </div>
-                <div className="message message-incoming">
-                  <div className="message-sender">健太さん</div>
-                  <div className="message-content">
-                    なるほど！それでyの値は元の式に代入すればいいのか
-                  </div>
-                </div>
-              </div>
-              <div className="stamp-container">
-                <button className="stamp-button">👍 わかった</button>
-                <button className="stamp-button">🤔 もう一度</button>
-                <button className="stamp-button">📝 例題</button>
-                <button className="stamp-button">💡 ヒント</button>
-              </div>
-              <div className="chat-input-container">
-                <input
-                  type="text"
-                  className="chat-input"
-                  placeholder="メッセージを入力..."
-                />
-                <button className="send-button">
-                  <ArrowRight size={18} />
-                </button>
-              </div>
-            </div>
-          </main>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="w-full max-w-md p-4 space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">コラボ学習</h1>
+          <p className="text-muted-foreground">友達と一緒にリアルタイムで学ぼう</p>
         </div>
-        <footer className="room-footer">
-          <div className="footer-left">
-            <button
-              className={`footer-button button-secondary ${
-                isHandRaised ? 'hand-raised' : ''
-              }`}
-              onClick={handleRaiseHand}
-            >
-              <Hand size={16} />
-              <span>手を挙げる</span>
-            </button>
-            <button className="footer-button button-secondary">
-              <Lightbulb size={16} />
-              <span>ヒントを求める</span>
-            </button>
-          </div>
-          <div className="footer-right">
-            <button className="footer-button button-primary">
-              <Check size={16} />
-              <span>解答を提出</span>
-            </button>
-            <button className="footer-button button-accent">
-              <RefreshCw size={16} />
-              <span>交代する</span>
-            </button>
-          </div>
-        </footer>
+
+        {/* Pre-flight Check Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>接続テスト</CardTitle>
+            <CardDescription>コラボ学習を始める前に、ネットワーク接続が安定しているか確認します。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleTestConnection} disabled={isTesting} className="w-full">
+              {isTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Network className="mr-2 h-4 w-4" />}
+              テストを実行
+            </Button>
+            {testResult !== null && (
+              <div className={cn("mt-4 text-center text-sm p-2 rounded-md", testResult ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
+                {testResult ? (
+                  <p className="flex items-center justify-center"><CheckCircle className="mr-2 h-4 w-4" />直接接続の可能性が高いです。快適に利用できます。</p>
+                ) : (
+                  <p className="flex items-center justify-center"><XCircle className="mr-2 h-4 w-4" />直接接続が難しいようです。別のネットワーク（Wi-Fiやテザリング）を試してください。</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>新しいルームを作成</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleCreateRoom} disabled={isCreating} className="w-full">
+              {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+              {isCreating ? '作成中...' : '作成する'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>既存のルームに参加</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Input value={roomId} onChange={(e) => setRoomId(e.target.value)} placeholder="ルームID" onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()} />
+            <Button onClick={handleJoinRoom} disabled={!roomId.trim()} className="w-full">
+              <LogIn className="mr-2 h-4 w-4" />
+              参加する
+            </Button>
+          </CardContent>
+        </Card>
       </div>
-    </>
+    </div>
   );
 }

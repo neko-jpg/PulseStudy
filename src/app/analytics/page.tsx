@@ -1,272 +1,116 @@
-
 'use client';
 
-import Link from 'next/link';
-import {
-  ArrowUp,
-  ArrowDown,
-  Flame,
-  BarChart,
-  Clock,
-  TrendingUp,
-  Target,
-  Plus,
-  Mail,
-  User,
-  Camera,
-  Download,
-  Home,
-  BookOpen,
-  Users,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from "@/components/ui/use-toast";
+import { ArrowLeft, BarChart4, CheckCircle, Clock, Share2, TrendingUp, Lightbulb, ArrowRight, Loader2, Copy } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import './analytics.css';
 
+// --- TYPE DEFINITIONS (unchanged) ---
+interface Summary { totalTime: number; accuracy: number; flowScore: number; completedModules: number; }
+interface HeatmapPoint { date: string; count: number; }
+interface Improvement { moduleId: string; moduleName: string; reason: string; }
+interface AnalyticsData { summary: Summary; heatmap: HeatmapPoint[]; top3: Improvement[]; }
+
+// --- SKELETON COMPONENTS (unchanged) ---
+const SummaryCardSkeleton = () => <Card><CardHeader className="pb-2"><Skeleton className="h-4 w-2/3" /></CardHeader><CardContent><Skeleton className="h-8 w-1/2" /></CardContent></Card>;
+const HeatmapSkeleton = () => <div className="grid grid-cols-7 gap-1">{Array.from({ length: 35 }).map((_, i) => <Skeleton key={i} className="w-full aspect-square rounded-sm" />)}</div>;
+const ImprovementCardSkeleton = () => <Card className="p-4"><div className="flex items-center gap-4"><Skeleton className="h-8 w-8 rounded-full" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" /></div><Skeleton className="h-5 w-5" /></div></Card>;
+
+// --- MAIN ANALYTICS PAGE ---
 export default function AnalyticsPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isSharing, setIsSharing] = useState(false);
+
+  useEffect(() => {
+    // ... fetchData logic remains the same ...
+    const fetchData = async () => { setLoading(true); try { const res = await fetch('/api/analytics'); const d = await res.json(); setData(d); } catch (e) { console.error(e); } finally { setLoading(false); } };
+    fetchData();
+  }, []);
+
+  const getHeatmapColor = (count: number) => { /* ... as before ... */
+    if (count === 0) return 'bg-muted/50'; if (count <= 2) return 'bg-blue-200 dark:bg-blue-900'; if (count <= 4) return 'bg-blue-400 dark:bg-blue-700'; return 'bg-blue-600 dark:bg-blue-500';
+  };
+
+  const handleShare = async () => {
+    setIsSharing(true);
+    try {
+      const res = await fetch('/api/share/analytics', { method: 'POST' });
+      const { shareUrl } = await res.json();
+
+      await navigator.clipboard.writeText(shareUrl);
+
+      toast({
+        title: "共有リンクをコピーしました！",
+        description: shareUrl,
+        action: <Button variant="secondary" size="sm" onClick={() => window.open(shareUrl, '_blank')}>開く</Button>,
+      });
+    } catch (error) {
+      toast({ variant: "destructive", title: "エラー", description: "共有リンクの作成に失敗しました。" });
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
-    <>
-      <div className="analytics-container">
-        <header className="analytics-header">
-          <div className="header-top">
-            <h1>学習分析</h1>
-            <div className="period-selector">
-              <button className="period-button active">週</button>
-              <button className="period-button">月</button>
-              <button className="period-button">全期間</button>
-            </div>
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <header className="flex items-center p-2 border-b bg-background z-20 sticky top-0">
+        <Button variant="ghost" size="icon" onClick={() => router.push('/home')}><ArrowLeft /></Button>
+        <h1 className="ml-2 font-bold text-md sm:text-lg truncate">学習分析</h1>
+        <div className="flex-grow" />
+        <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
+            {isSharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
+            共有
+        </Button>
+      </header>
+
+      <main className="p-4 space-y-8">
+        {/* Summary Cards */}
+        <section>
+          <h2 className="text-lg font-semibold mb-3">サマリー</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {loading || !data ? (<><SummaryCardSkeleton /><SummaryCardSkeleton /><SummaryCardSkeleton /><SummaryCardSkeleton /></>) : (
+              <>
+                <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center"><Clock className="mr-2 h-4 w-4 text-muted-foreground"/>学習時間</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{data.summary.totalTime}分</p></CardContent></Card>
+                <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center"><CheckCircle className="mr-2 h-4 w-4 text-muted-foreground"/>平均正答率</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{(data.summary.accuracy * 100).toFixed(0)}%</p></CardContent></Card>
+                <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center"><TrendingUp className="mr-2 h-4 w-4 text-muted-foreground"/>集中スコア</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{data.summary.flowScore}</p></CardContent></Card>
+                <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center"><BarChart4 className="mr-2 h-4 w-4 text-muted-foreground"/>完了数</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{data.summary.completedModules}</p></CardContent></Card>
+              </>
+            )}
           </div>
-          <div className="analytics-title">学習の成果を確認しよう</div>
-          <div className="analytics-subtitle">今週は7時間学習しました</div>
-        </header>
+        </section>
 
-        <div className="container-inner">
-          <div className="summary-cards">
-            <div className="summary-card">
-              <div className="card-title">学習時間</div>
-              <div className="card-value">7h 30m</div>
-              <div className="card-change positive">
-                <ArrowUp size={14} /> 12% 先週より増加
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-title">集中度</div>
-              <div className="card-value">76%</div>
-              <div className="card-change positive">
-                <ArrowUp size={14} /> 5% 先週より向上
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-title">正答率</div>
-              <div className="card-value">82%</div>
-              <div className="card-change negative">
-                <ArrowDown size={14} /> 3% 微減
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-title">連続学習</div>
-              <div className="card-value">7日</div>
-              <div className="card-change positive">
-                <Flame size={14} /> 継続中
-              </div>
-            </div>
+        {/* Heatmap */}
+        <section>
+          <h2 className="text-lg font-semibold mb-3">学習活動ヒートマップ</h2>
+          {loading || !data ? <HeatmapSkeleton /> : ( <Card><CardContent className="p-4"><div className="grid grid-cols-7 gap-1">{data.heatmap.map(day => (<div key={day.date} title={`${day.date}: ${day.count} activities`} className={cn("w-full aspect-square rounded-sm", getHeatmapColor(day.count))} />))}</div></CardContent></Card> )}
+        </section>
+
+        {/* Top 3 Improvements */}
+        <section>
+          <h2 className="text-lg font-semibold mb-3">伸びしろ Top 3</h2>
+          <div className="space-y-4">
+            {loading || !data ? (<><ImprovementCardSkeleton /><ImprovementCardSkeleton /><ImprovementCardSkeleton /></>) : (
+              data.top3.map(item => (
+                <Card key={item.moduleId} className="p-4 cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/learn?module=${item.moduleId}`)}>
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 bg-muted rounded-full"><Lightbulb className="h-5 w-5 text-yellow-500" /></div>
+                        <div className="flex-1"><p className="font-semibold">{item.moduleName}</p><p className="text-sm text-muted-foreground">{item.reason}</p></div>
+                        <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                </Card>
+              ))
+            )}
           </div>
-
-          <section className="heatmap-section">
-            <div className="section-header">
-              <div className="section-title">学習活動ヒートマップ</div>
-            </div>
-            <div className="heatmap-container">
-              <div className="heatmap-day">月</div>
-              <div className="heatmap-day">火</div>
-              <div className="heatmap-day">水</div>
-              <div className="heatmap-day">木</div>
-              <div className="heatmap-day">金</div>
-              <div className="heatmap-day">土</div>
-              <div className="heatmap-day">日</div>
-
-              <div className="heatmap-cell" data-level="2">
-                <div className="heatmap-tooltip">月曜: 1.5時間</div>
-              </div>
-              <div className="heatmap-cell" data-level="3">
-                <div className="heatmap-tooltip">火曜: 2時間</div>
-              </div>
-              <div className="heatmap-cell" data-level="1">
-                <div className="heatmap-tooltip">水曜: 45分</div>
-              </div>
-              <div className="heatmap-cell" data-level="4">
-                <div className="heatmap-tooltip">木曜: 2.5時間</div>
-              </div>
-              <div className="heatmap-cell" data-level="2">
-                <div className="heatmap-tooltip">金曜: 1.5時間</div>
-              </div>
-              <div className="heatmap-cell" data-level="0">
-                <div className="heatmap-tooltip">土曜: 学習なし</div>
-              </div>
-              <div className="heatmap-cell" data-level="1">
-                <div className="heatmap-tooltip">日曜: 30分</div>
-              </div>
-            </div>
-          </section>
-
-          <section className="focus-section">
-            <div className="section-header">
-              <div className="section-title">時間帯別集中度</div>
-            </div>
-            <div className="chart-container">
-              <div className="chart-line">
-                <div className="chart-bar" style={{ height: '65%' }}></div>
-                <div className="chart-bar" style={{ height: '45%' }}></div>
-                <div className="chart-bar" style={{ height: '30%' }}></div>
-                <div className="chart-bar" style={{ height: '75%' }}></div>
-                <div className="chart-bar" style={{ height: '90%' }}></div>
-                <div className="chart-bar" style={{ height: '70%' }}></div>
-                <div className="chart-bar" style={{ height: '40%' }}></div>
-              </div>
-            </div>
-            <div className="chart-labels">
-              <span>6-9時</span>
-              <span>9-12時</span>
-              <span>12-15時</span>
-              <span>15-18時</span>
-              <span>18-21時</span>
-              <span>21-24時</span>
-              <span>0-6時</span>
-            </div>
-          </section>
-
-          <section className="subjects-section">
-            <div className="section-header">
-              <div className="section-title">科目別理解度</div>
-            </div>
-            <div className="subject-row">
-              <div className="subject-name">数学</div>
-              <div className="subject-progress">
-                <div
-                  className="subject-progress-fill"
-                  style={{ width: '75%', backgroundColor: 'var(--primary)' }}
-                ></div>
-              </div>
-              <div className="subject-percentage">75%</div>
-            </div>
-            <div className="subject-row">
-              <div className="subject-name">英語</div>
-              <div className="subject-progress">
-                <div
-                  className="subject-progress-fill"
-                  style={{ width: '82%', backgroundColor: 'var(--success)' }}
-                ></div>
-              </div>
-              <div className="subject-percentage">82%</div>
-            </div>
-            <div className="subject-row">
-              <div className="subject-name">国語</div>
-              <div className="subject-progress">
-                <div
-                  className="subject-progress-fill"
-                  style={{ width: '68%', backgroundColor: 'var(--warning)' }}
-                ></div>
-              </div>
-              <div className="subject-percentage">68%</div>
-            </div>
-            <div className="subject-row">
-              <div className="subject-name">理科</div>
-              <div className="subject-progress">
-                <div
-                  className="subject-progress-fill"
-                  style={{ width: '60%', backgroundColor: 'var(--accent)' }}
-                ></div>
-              </div>
-              <div className="subject-percentage">60%</div>
-            </div>
-          </section>
-
-          <section className="improvement-section">
-            <div className="section-header">
-              <div className="section-title">改善ポイント</div>
-            </div>
-            <div className="improvement-card">
-              <div className="improvement-title">
-                <BarChart size={18} />
-                <span>二次関数の強化</span>
-              </div>
-              <div className="improvement-desc">
-                先週の正答率が65%と低めです。グラフ問題に重点的に取り組みましょう。
-              </div>
-              <button className="improvement-action">強化学習を開始</button>
-            </div>
-            <div className="improvement-card">
-              <div className="improvement-title">
-                <Clock size={18} />
-                <span>朝の学習習慣化</span>
-              </div>
-              <div className="improvement-desc">
-                朝6-9時の集中度が最高です。この時間帯の学習を増やしましょう。
-              </div>
-              <button className="improvement-action">スケジュール設定</button>
-            </div>
-          </section>
-
-          <section className="schedule-section">
-            <div className="section-header">
-              <div className="section-title">今週の学習提案</div>
-            </div>
-            <div className="schedule-days">
-              <div className="schedule-day active">月</div>
-              <div className="schedule-day">火</div>
-              <div className="schedule-day">水</div>
-              <div className="schedule-day">木</div>
-              <div className="schedule-day">金</div>
-              <div className="schedule-day">土</div>
-              <div className="schedule-day">日</div>
-            </div>
-            <div className="schedule-slots">
-              <div className="schedule-slot">
-                <div className="slot-time">18:00-18:30</div>
-                <div className="slot-subject">数学：二次関数の復習</div>
-                <button className="slot-action">
-                  <Plus size={16} />
-                </button>
-              </div>
-              <div className="schedule-slot">
-                <div className="slot-time">20:00-20:30</div>
-                <div className="slot-subject">英語：不定詞の演習</div>
-                <button className="slot-action">
-                  <Plus size={16} />
-                </button>
-              </div>
-            </div>
-            <button
-              className="improvement-action"
-              style={{ width: '100%', marginTop: '16px' }}
-            >
-              カレンダーに追加
-            </button>
-          </section>
-
-          <section className="share-section">
-            <div className="section-header">
-              <div className="section-title">進捗を共有</div>
-            </div>
-            <div className="share-options">
-              <button className="share-button">
-                <Mail className="share-icon" />
-                <div className="share-text">保護者に送信</div>
-              </button>
-              <button className="share-button">
-                <User className="share-icon" />
-                <div className="share-text">教師と共有</div>
-              </button>
-              <button className="share-button">
-                <Camera className="share-icon" />
-                <div className="share-text">画像で保存</div>
-              </button>
-              <button className="share-button">
-                <Download className="share-icon" />
-                <div className="share-text">データ出力</div>
-              </button>
-            </div>
-          </section>
-        </div>
-      </div>
-    </>
+        </section>
+      </main>
+    </div>
   );
 }

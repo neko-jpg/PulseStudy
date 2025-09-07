@@ -1,245 +1,126 @@
-
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useRouter } from 'next/navigation';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Bell,
-  Flame,
-  Timer,
-  BarChart,
-  Trophy,
-  Zap,
-  Home,
-  BookOpen,
-  Target,
-  Users,
-  User,
+  Bell, Flame, Users, ArrowRight, BarChart, BrainCircuit, Atom, BookOpen, EyeOff
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import './home.css';
 
+// 型定義
+interface Quickstart { moduleId: string; moduleName: string; progress: number; }
+interface Task { id: string; moduleId: string; title: string; subject: string; icon: string; }
+interface HomeData { quickstart: Quickstart; tasks: Task[]; unread: number; }
+
+// アイコンコンポーネント
+const TaskIcon = ({ iconName }: { iconName: string }) => {
+  switch (iconName) {
+    case 'brain-circuit': return <BrainCircuit className="h-6 w-6 text-muted-foreground" />;
+    case 'atom': return <Atom className="h-6 w-6 text-muted-foreground" />;
+    case 'book-open': return <BookOpen className="h-6 w-6 text-muted-foreground" />;
+    default: return <BarChart className="h-6 w-6 text-muted-foreground" />;
+  }
+};
+
+// スケルトンコンポーネント
+const QuickStartSkeleton = () => (<Card className="task-card bg-primary/80 text-primary-foreground"><CardHeader><Skeleton className="h-6 w-3/4 bg-primary/50" /></CardHeader><CardContent><div className="flex justify-between items-center mb-2"><Skeleton className="h-4 w-1/3 bg-primary/50" /><Skeleton className="h-10 w-24 bg-primary/50" /></div><Skeleton className="h-2 w-full bg-primary/50" /></CardContent></Card>);
+const TaskCardSkeleton = () => (<Card className="task-card-sm"><CardContent className="flex items-center justify-between p-4"><div className="flex items-center gap-4"><Skeleton className="h-12 w-12 rounded-full" /><div className="space-y-2"><Skeleton className="h-4 w-[150px]" /><Skeleton className="h-4 w-[100px]" /></div></div><Skeleton className="h-5 w-5 rounded-full" /></CardContent></Card>);
+const AnalyticsSummarySkeleton = () => (<Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium"><Skeleton className="h-5 w-32" /></CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><Skeleton className="h-8 w-1/4 mb-1" /><Skeleton className="h-3 w-1/2" /><Skeleton className="h-2 w-full mt-4" /></CardContent></Card>);
+const FriendActivitySkeleton = () => (<Card><CardContent className="p-4 space-y-4">{[...Array(2)].map((_, i) => (<div key={i} className="flex items-center"><Skeleton className="h-9 w-9 rounded-full" /><div className="ml-4 space-y-2"><Skeleton className="h-4 w-[200px]" /><Skeleton className="h-3 w-[50px]" /></div></div>))}<Skeleton className="h-10 w-full" /></CardContent></Card>);
+
+
+// ============== MAIN HOME PAGE COMPONENT ==============
 export default function HomePage() {
+  const router = useRouter();
+  const [data, setData] = useState<HomeData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [userName] = useState('葵');
+  const [focusMode, setFocusMode] = useState(false);
+
   useEffect(() => {
-    const setCurrentDate = () => {
-      const dateElement = document.getElementById('current-date');
-      if (dateElement) {
-        const now = new Date();
-        const options: Intl.DateTimeFormatOptions = {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          weekday: 'long',
-        };
-        dateElement.textContent = now.toLocaleDateString('ja-JP', options);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/home');
+        if (!res.ok) throw new Error('Failed to fetch');
+        const homeData: HomeData = await res.json();
+        setData(homeData);
+      } catch (error) {
+        console.error("Error fetching home data:", error);
+      } finally {
+        setLoading(false);
       }
     };
-
-    setCurrentDate();
+    fetchData();
   }, []);
 
-  const startLearning = (moduleId: number) => {
-    // In a real implementation, you would navigate to the learning screen here.
-    // For now, we'll just show an alert.
-    alert(`モジュール ${moduleId} を開始します！`);
-  };
+  const greetingMessage = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour >= 4 && hour < 12) return `おはようございます、${userName}さん！`;
+    if (hour >= 12 && hour < 18) return `こんにちは、${userName}さん！`;
+    return `夜の学習、お疲れ様です🌃`;
+  }, [userName]);
+
+  const handleNavigate = (path: string) => router.push(path);
 
   return (
-    <div className="home-container">
-      <header className="home-header">
-        <div className="header-top">
-          <div className="user-info">
-            <Link href="/profile">
-              <Avatar>
-                <AvatarFallback>A</AvatarFallback>
-              </Avatar>
-            </Link>
+    <div className={cn("home-container p-4 sm:p-6 min-h-screen", focusMode ? "bg-blue-50 dark:bg-blue-950" : "bg-gray-50 dark:bg-gray-900", "transition-colors duration-300")}>
+      <header className="home-header mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-3">
+            <Link href="/profile"><Avatar className="h-10 w-10"><AvatarImage src={`https://api.dicebear.com/7.x/micah/svg?seed=${userName}`} alt={userName} /><AvatarFallback>{userName.charAt(0)}</AvatarFallback></Avatar></Link>
             <div>
-              <div>葵さん</div>
-              <div className="streak">
-                <Flame className="h-4 w-4" />
-                <span className="streak-count">7日</span>
-              </div>
+              <div className="font-semibold text-lg">{userName}さん</div>
+              <div className="flex items-center text-sm text-muted-foreground"><Flame className="h-4 w-4 mr-1 text-orange-500" /><span>7日連続</span></div>
             </div>
           </div>
-          <div className="notification">
+          <div className="flex items-center">
+            <Button onClick={() => setFocusMode(!focusMode)} variant="ghost" size="icon" title="フォーカスモード切替">
+              <EyeOff className={cn("h-6 w-6 transition-colors", focusMode ? 'text-primary' : 'text-muted-foreground')} />
+            </Button>
             <Link href="/notifications">
-              <Bell />
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="h-6 w-6" />
+                {!loading && data && data.unread > 0 && !focusMode && (<span className="absolute top-1 right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 justify-center items-center text-white text-[10px]">{data.unread}</span></span>)}
+              </Button>
             </Link>
           </div>
         </div>
-        <div className="greeting">
-          <h1>
-            今日も学びを
-            <br />
-            高めましょう
-          </h1>
-        </div>
-        <div className="date" id="current-date"></div>
+        <div className="greeting"><h1 className="text-2xl font-bold">{greetingMessage}</h1></div>
       </header>
 
-      <div className="container-inner">
-        <section className="quick-start">
-          <div className="section-title">
-            <span>今日やる</span>
-            <Link href="#" className="see-all">
-              すべて見る
-            </Link>
-          </div>
-
-          <Card className="task-card">
-            <CardHeader>
-              <div className="task-subject">数学</div>
-              <CardTitle className="task-title">
-                二次関数のグラフをマスター
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="task-meta">
-                <div className="task-meta-item">
-                  <Timer className="h-4 w-4" /> 5分
-                </div>
-                <div className="task-meta-item">
-                  <BarChart className="h-4 w-4" /> 3問
-                </div>
-              </div>
-              <Link href="/learn">
-                <Button className="start-button">続きから始める</Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card className="task-card recommended">
-            <CardHeader>
-              <div className="task-subject">英語</div>
-              <CardTitle className="task-title">苦手な不定詞を克服</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="task-meta">
-                <div className="task-meta-item">
-                  <Timer className="h-4 w-4" /> 5分
-                </div>
-                <div className="task-meta-item">
-                  <BarChart className="h-4 w-4" /> 4問
-                </div>
-              </div>
-              <Button
-                className="start-button"
-                onClick={() => startLearning(2)}
-              >
-                始める
-              </Button>
-            </CardContent>
-          </Card>
+      <main className="space-y-8">
+        <section>
+          <h2 className="text-lg font-semibold mb-3">続きから</h2>
+          {loading || !data ? <QuickStartSkeleton /> : (<Card onClick={() => handleNavigate(`/learn?module=${data.quickstart.moduleId}`)} className="task-card bg-primary text-primary-foreground cursor-pointer transition-transform hover:scale-105"><CardHeader><CardTitle>{data.quickstart.moduleName}</CardTitle></CardHeader><CardContent><div className="flex justify-between items-center mb-2"><p className="text-sm">学習の続きから</p><Button variant="secondary" size="sm">始める <ArrowRight className="ml-2 h-4 w-4" /></Button></div><Progress value={data.quickstart.progress} className="w-full" /></CardContent></Card>)}
         </section>
 
-        <section className="pulse-section">
-          <div className="section-title">
-            <span>没入度パルス</span>
-          </div>
-          <Card className="pulse-card">
-            <CardContent>
-              <div className="pulse-header">
-                <div className="pulse-title">集中度</div>
-                <div className="pulse-value">78%</div>
-              </div>
-              <div className="sparkline">
-                <div className="sparkline-fill"></div>
-              </div>
-              <div className="pulse-days">
-                <span>月</span>
-                <span>火</span>
-                <span>水</span>
-                <span>木</span>
-                <span>金</span>
-                <span>土</span>
-                <span>日</span>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="challenge-section">
-          <div className="section-title">
-            <span>チャレンジ</span>
-            <Link href="/challenge" className="see-all">
-              すべて見る
-            </Link>
-          </div>
-
-          <Card className="challenge-card">
-            <CardContent>
-              <div className="challenge-icon">
-                <Trophy />
-              </div>
-              <div className="challenge-info">
-                <div className="challenge-title">5日連続学習</div>
-                <div className="challenge-desc">あと2日で達成！</div>
-                <Progress value={65} className="progress-bar" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="challenge-card">
-            <CardContent>
-              <div className="challenge-icon">
-                <Zap />
-              </div>
-              <div className="challenge-info">
-                <div className="challenge-title">朝活マスター</div>
-                <div className="challenge-desc">今週3回の朝学習</div>
-                <Progress value={33} className="progress-bar" />
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="community-section">
-          <div className="section-title">
-            <span>友達の活動</span>
-            <Link href="#" className="see-all">
-              すべて見る
-            </Link>
-          </div>
-
-          <div className="friend-activity">
-            <Avatar className="friend-avatar">
-              <AvatarFallback>K</AvatarFallback>
-            </Avatar>
-            <div className="friend-info">
-              <div className="friend-name">健太</div>
-              <div className="friend-action">数学のクイズを完了</div>
-            </div>
-            <div className="friend-time">12分前</div>
-          </div>
-
-          <div className="friend-activity">
-            <Avatar className="friend-avatar">
-              <AvatarFallback>S</AvatarFallback>
-            </Avatar>
-            <div className="friend-info">
-              <div className="friend-name">さくら</div>
-              <div className="friend-action">3日連続で学習中</div>
-            </div>
-            <div className="friend-time">1時間前</div>
-          </div>
-
-          <div className="friend-activity">
-            <Avatar className="friend-avatar">
-              <AvatarFallback>R</AvatarFallback>
-            </Avatar>
-            <div className="friend-info">
-              <div className="friend-name">涼太</div>
-              <div className="friend-action">新しいバッジを獲得</div>
-            </div>
-            <div className="friend-time">2時間前</div>
+        <section>
+          <h2 className="text-lg font-semibold mb-3">今日の3タスク</h2>
+          <div className="grid gap-4">
+            {loading || !data ? (<><TaskCardSkeleton /><TaskCardSkeleton /><TaskCardSkeleton /></>) : (data.tasks.map(task => (<Card key={task.id} onClick={() => handleNavigate(`/learn?module=${task.moduleId}`)} className="task-card-sm cursor-pointer transition-transform hover:scale-105"><CardContent className="flex items-center justify-between p-4"><div className="flex items-center gap-4"><div className="bg-muted p-3 rounded-full"><TaskIcon iconName={task.icon} /></div><div><p className="font-semibold">{task.title}</p><p className="text-sm text-muted-foreground">{task.subject}</p></div></div><ArrowRight className="h-5 w-5 text-muted-foreground" /></CardContent></Card>)))}
           </div>
         </section>
-      </div>
 
+        {!focusMode && (<>
+          <section>
+              <h2 className="text-lg font-semibold mb-3">進捗サマリ</h2>
+              {loading ? <AnalyticsSummarySkeleton /> : (<Card onClick={() => handleNavigate('/analytics')} className="cursor-pointer transition-transform hover:scale-105"><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">学習アナリティクス</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">78%</div><p className="text-xs text-muted-foreground">先週からの平均正答率</p><div className="mt-4 h-2 w-full bg-muted rounded-full"><div style={{width: '78%'}} className="h-2 bg-primary rounded-full"></div></div></CardContent></Card>)}
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-3">友人アクティビティ</h2>
+            {loading ? <FriendActivitySkeleton /> : (<Card><CardContent className="p-4 space-y-4"><div className="flex items-center"><Avatar className="h-9 w-9"><AvatarImage src="https://api.dicebear.com/7.x/micah/svg?seed=Kenta" alt="Kenta" /><AvatarFallback>K</AvatarFallback></Avatar><div className="ml-4 space-y-1"><p className="text-sm font-medium leading-none">健太さんが「三角関数」を完了</p><p className="text-sm text-muted-foreground">12分前</p></div></div><div className="flex items-center"><Avatar className="h-9 w-9"><AvatarImage src="https://api.dicebear.com/7.x/micah/svg?seed=Sakura" alt="Sakura" /><AvatarFallback>S</AvatarFallback></Avatar><div className="ml-4 space-y-1"><p className="text-sm font-medium leading-none">さくらさんが3日連続で学習中</p><p className="text-sm text-muted-foreground">1時間前</p></div></div><Button onClick={() => handleNavigate('/notifications?tab=social')} variant="outline" className="w-full">全て見る</Button></CardContent></Card>)}
+          </section>
+        </>)}
+      </main>
     </div>
   );
 }
