@@ -4,7 +4,7 @@ export type Unsubscribe = () => void
 type Options = { transport?: 'poll'|'sse' }
 
 export function subscribeRoomState(roomId: string, onState: (s: any) => void, opts: Options = {}): Unsubscribe {
-  const transport = opts.transport || 'poll'
+  const transport = opts.transport || 'sse'
   if (transport === 'sse' && typeof window !== 'undefined' && 'EventSource' in window) {
     try {
       const es = new EventSource(`/api/rooms/${roomId}/sse`)

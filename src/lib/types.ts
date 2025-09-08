@@ -72,4 +72,37 @@ export type RoomSession = {
   pendingJoins?: RoomMember[]
   inviteTokens?: { token: string; exp: number }[]
   lastStampAt?: Record<string, number>
+  // Whiteboard (collaborative drawing)
+  board?: BoardState
+  boardLastClientId?: string
+  live?: LiveBoard
+}
+
+// Whiteboard types
+export type BoardPoint = { x: number; y: number }
+export type BoardStroke = { color: string; size: number; points: BoardPoint[] }
+export type BoardShape = { t: 'line'|'rect'; x:number; y:number; w:number; h:number; color:string; size:number }
+export type BoardText = { x:number; y:number; text:string; color:string; size:number; weight:'normal'|'bold' }
+export type BoardNote = { x:number; y:number; w:number; h:number; color:string; text:string }
+
+export type BoardState = {
+  strokes: BoardStroke[]
+  shapes: BoardShape[]
+  texts: BoardText[]
+  notes: BoardNote[]
+  rev: number // monotonically increasing revision
+}
+
+// Live stroke (in-progress) streaming
+export type LiveStroke = {
+  id: string
+  clientId: string
+  color: string
+  size: number
+  points: BoardPoint[]
+  updatedAt: number
+}
+
+export type LiveBoard = {
+  strokes: Record<string, LiveStroke>
 }

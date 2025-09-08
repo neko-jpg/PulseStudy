@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { track } from '@/lib/analytics'
+import { subscribeRoomState } from '@/lib/realtime'
 
 type Stroke = { color: string; size: number; points: { x:number; y:number }[] }
 type Shape = { t:'line'|'rect'; x:number; y:number; w:number; h:number; color:string; size:number }
@@ -28,12 +29,19 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
   const [notes, setNotes] = useState<Sticky[]>([])
   const historyRef = useRef<{strokes:Stroke[];shapes:Shape[];texts:TextItem[];notes:Sticky[]}[]>([])
   const redoRef = useRef<{strokes:Stroke[];shapes:Shape[];texts:TextItem[];notes:Sticky[]}[]>([])
+  const remoteRevRef = useRef<number>(-1)
+  const unsubRef = useRef<null | (()=>void)>(null)
 
   const drawingRef = useRef<{ active:boolean; last?:{x:number;y:number}; draft?:Stroke|null; shapeStart?:{x:number;y:number}|null }>({ active:false, draft:null, shapeStart:null })
   const selectionRef = useRef<{ kind:'shape'|'line'|'text'|'note'; idx:number; ox:number; oy:number; resize?:boolean }|null>(null)
   const snapRectRef = useRef<{ sx:number; sy:number; ex:number; ey:number }|null>(null)
   const [textbox, setTextbox] = useState<{ x:number; y:number; value:string }|null>(null)
   const [noteEdit, setNoteEdit] = useState<{ idx:number; value:string }|null>(null)
+  const clientIdRef = useRef<string>('')
+  const liveIdRef = useRef<string|null>(null)
+  const liveBufRef = useRef<{ x:number; y:number }[]>([])
+  const liveTimerRef = useRef<any>(null)
+  const liveStrokesRef = useRef<Record<string, { color:string; size:number; points:{x:number;y:number}[] }>>({})
 
   // resize helpers
   function doResize() {
@@ -59,6 +67,52 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     if (containerRef.current) ro.observe(containerRef.current)
     return () => ro.disconnect()
   }, [])
+
+  // init client id for realtime operations
+  useEffect(() => {
+    if (!clientIdRef.current) {
+      try {
+        const k = 'wb_client_id'
+        const saved = localStorage.getItem(k)
+        if (saved) clientIdRef.current = saved
+        else { const id = `c-${Math.random().toString(36).slice(2,10)}`; clientIdRef.current = id; localStorage.setItem(k, id) }
+      } catch { clientIdRef.current = `c-${Math.random().toString(36).slice(2,10)}` }
+    }
+  }, [])
+
+  // realtime subscribe to room board
+  useEffect(() => {
+    if (!roomId) { if (unsubRef.current) { unsubRef.current(); unsubRef.current=null }; return }
+    if (unsubRef.current) { unsubRef.current(); unsubRef.current=null }
+    unsubRef.current = subscribeRoomState(roomId, (s) => {
+      const b = (s && s.board) || null
+      if (!b) return
+      const rev = Number(b.rev ?? 0)
+      if (drawingRef.current.active) return // avoid interrupting local drawing
+      if (rev <= remoteRevRef.current) return
+      remoteRevRef.current = rev
+      // apply remote board
+      try {
+        setStrokes(Array.isArray(b.strokes) ? (b.strokes as any) : [])
+        setShapes(Array.isArray(b.shapes) ? (b.shapes as any) : [])
+        setTexts(Array.isArray(b.texts) ? (b.texts as any) : [])
+        setNotes(Array.isArray(b.notes) ? (b.notes as any) : [])
+      } catch {}
+      // update live strokes overlay
+      try {
+        const live = (s && (s as any).live && (s as any).live.strokes) || {}
+        const map: Record<string, { color:string; size:number; points:{x:number;y:number}[] }> = {}
+        for (const key of Object.keys(live||{})){
+          const it = (live as any)[key]
+          if (!it) continue
+          map[key] = { color: it.color, size: it.size, points: Array.isArray(it.points)? it.points.filter(Boolean): [] }
+        }
+        liveStrokesRef.current = map
+        clearOverlay()
+      } catch {}
+    })
+    return () => { if (unsubRef.current) { unsubRef.current(); unsubRef.current=null } }
+  }, [roomId])
 
   // force resize when fullscreen toggles
   useLayoutEffect(() => {
@@ -172,20 +226,47 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
   }, [texts])
 
   function pushHistory(){ historyRef.current.push({ strokes:JSON.parse(JSON.stringify(strokes)), shapes:JSON.parse(JSON.stringify(shapes)), texts:JSON.parse(JSON.stringify(texts)), notes:JSON.parse(JSON.stringify(notes)) }); if(historyRef.current.length>100) historyRef.current.shift(); redoRef.current=[] }
-  function undo(){ const prev=historyRef.current.pop(); if(!prev) return; redoRef.current.push({strokes,shapes,texts,notes}); setStrokes(prev.strokes); setShapes(prev.shapes); setTexts(prev.texts); setNotes(prev.notes) }
-  function redo(){ const next=redoRef.current.pop(); if(!next) return; historyRef.current.push({strokes,shapes,texts,notes}); setStrokes(next.strokes); setShapes(next.shapes); setTexts(next.texts); setNotes(next.notes) }
-  function clearAll(){ pushHistory(); setStrokes([]); setShapes([]); setTexts([]); setNotes([]) }
+  async function syncBoard(partial?: Partial<{ strokes:Stroke[]; shapes:Shape[]; texts:TextItem[]; notes:Sticky[] }>){
+    if (!roomId) return
+    const board = {
+      strokes: partial?.strokes ?? strokes,
+      shapes: partial?.shapes ?? shapes,
+      texts: partial?.texts ?? texts,
+      notes: partial?.notes ?? notes,
+    }
+    try {
+      const body = { action:'set_board', board, baseRev: remoteRevRef.current, clientId: clientIdRef.current }
+      const r = await fetch(`/api/rooms/${roomId}/board`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      if (r.status === 409) { /* conflict detected: let SSE update and try later if needed */ }
+    } catch {}
+  }
+  async function syncAddStroke(stroke: Stroke){
+    if (!roomId) return
+    try { await fetch(`/api/rooms/${roomId}/board`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'add_stroke', stroke }) }) } catch {}
+  }
+  function undo(){ const prev=historyRef.current.pop(); if(!prev) return; redoRef.current.push({strokes,shapes,texts,notes}); setStrokes(prev.strokes); setShapes(prev.shapes); setTexts(prev.texts); setNotes(prev.notes); syncBoard({ strokes: prev.strokes, shapes: prev.shapes, texts: prev.texts, notes: prev.notes }) }
+  function redo(){ const next=redoRef.current.pop(); if(!next) return; historyRef.current.push({strokes,shapes,texts,notes}); setStrokes(next.strokes); setShapes(next.shapes); setTexts(next.texts); setNotes(next.notes); syncBoard({ strokes: next.strokes, shapes: next.shapes, texts: next.texts, notes: next.notes }) }
+  function clearAll(){ pushHistory(); const empty: Stroke[]=[]; const es:Shape[]=[]; const et:TextItem[]=[]; const en:Sticky[]=[]; setStrokes(empty); setShapes(es); setTexts(et); setNotes(en); syncBoard({ strokes: empty, shapes: es, texts: et, notes: en }) }
 
   function getPos(e:React.PointerEvent){ const rect=(e.target as HTMLElement).getBoundingClientRect(); return { x:e.clientX-rect.left, y:e.clientY-rect.top } }
-  function onPointerDown(e:React.PointerEvent<HTMLCanvasElement>){
+  async function onPointerDown(e:React.PointerEvent<HTMLCanvasElement>){
     e.preventDefault()
     try { (e.target as any).setPointerCapture?.(e.pointerId) } catch {}
     if (tool==='pen'||tool==='eraser'){
       const p=getPos(e); const stroke:Stroke={color: tool==='eraser'?'#ffffff':color, size: tool==='eraser'?Math.max(10,size*6):size, points:[p]}; drawingRef.current={active:true,last:p,draft:stroke,shapeStart:null}
+      if (roomId){
+        try {
+          const lid = `${clientIdRef.current}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,5)}`
+          liveIdRef.current = lid
+          liveBufRef.current = [p]
+          await fetch(`/api/rooms/${roomId}/board`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'start_live', strokeId: lid, clientId: clientIdRef.current, color: stroke.color, size: stroke.size }) })
+        } catch {}
+      }
     } else if (tool==='text'){
       const p=getPos(e); setTextbox({ x:p.x, y:p.y, value:'' })
     } else if (tool==='note'){
-      const p=getPos(e); pushHistory(); setNotes(arr=>[...arr,{x:p.x,y:p.y,w:180,h:120,color:'#fef08a',text:'メモ'}])
+      const p=getPos(e); pushHistory();
+      setNotes(arr=>{ const next=[...arr,{x:p.x,y:p.y,w:180,h:120,color:'#fef08a',text:'メモ'}]; syncBoard({ notes: next }); return next })
     } else if (tool==='line'||tool==='rect'){
       drawingRef.current.shapeStart = getPos(e)
     } else if (tool==='select'){
@@ -206,8 +287,42 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     }
   }
   function onPointerMove(e:React.PointerEvent<HTMLCanvasElement>){
-    e.preventDefault()
-    const p=getPos(e)
+    e.preventDefault();
+    const p = getPos(e);
+
+    // real-time stroke preview for pen/eraser using overlay (no state churn)
+    if (tool === 'pen' || tool === 'eraser') {
+      if (!drawingRef.current.active || !drawingRef.current.draft) return;
+      const d = drawingRef.current.draft;
+      if (!Array.isArray(d.points)) d.points = [];
+      d.points.push(p);
+      if (roomId && liveIdRef.current){
+        liveBufRef.current.push(p)
+        if (!liveTimerRef.current){
+          liveTimerRef.current = setTimeout(async () => {
+            const pts = liveBufRef.current.splice(0)
+            const sid = liveIdRef.current
+            liveTimerRef.current = null
+            if (sid && pts.length>0){ try { await fetch(`/api/rooms/${roomId}/board`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'live_points', strokeId: sid, points: pts }) }) } catch {} }
+          }, 50)
+        }
+      }
+      drawOverlay((ctx) => {
+        if (d.points.length < 2) return;
+        ctx.strokeStyle = d.color;
+        ctx.lineWidth = d.size;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(d.points[0].x, d.points[0].y);
+        for (let i = 1; i < d.points.length; i++) {
+          const point = d.points[i];
+          if (point) ctx.lineTo(point.x, point.y);
+        }
+        ctx.stroke();
+      });
+      return;
+    }
+
     if (tool==='laser'){ addLaserDot(p.x,p.y); return }
     if (tool==='select' && selectionRef.current){ const sel=selectionRef.current; if (sel.kind==='note'){ const i=sel.idx; if (sel.resize){ setNotes(arr=>arr.map((n,idx)=> idx!==i?n:{...n, w:Math.max(60,p.x-n.x), h:Math.max(40,p.y-n.y)})) } else { setNotes(arr=>arr.map((n,idx)=> idx!==i?n:{...n, x:p.x-sel.ox, y:p.y-sel.oy})) } return } if (sel.kind==='text'){ const i=sel.idx; setTexts(arr=>arr.map((t,idx)=> idx!==i?t:{...t, x:p.x-sel.ox, y:p.y-sel.oy})); return } if (sel.kind==='shape'||sel.kind==='line'){ const i=sel.idx; setShapes(arr=>arr.map((s,idx)=> idx!==i?s:{...s, x:p.x-sel.ox, y:p.y-sel.oy})); return } }
     if (tool==='line'||tool==='rect'){
@@ -215,19 +330,24 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
       return
     }
     if (tool==='snap' && snapRectRef.current){ const r=snapRectRef.current; r.ex=p.x; r.ey=p.y; drawOverlay((ctx)=>{ ctx.setLineDash([6,4]); ctx.strokeStyle='#111827'; ctx.strokeRect(r.sx,r.sy,r.ex-r.sx,r.ey-r.sy); ctx.setLineDash([]) }); return }
-    if (!drawingRef.current.active || !drawingRef.current.draft) return
-    const d=drawingRef.current.draft
-    if (!Array.isArray(d.points)) d.points = []
-    d.points.push(p)
-    setStrokes(prev=>prev.slice())
   }
-  function onPointerUp(){
+  async function onPointerUp(){
+    // finalize pen/eraser stroke and clear overlay preview
+    if (tool==='pen'||tool==='eraser'){ clearOverlay() }
     if (tool==='line'||tool==='rect'){
-      const start=drawingRef.current.shapeStart; if (start){ pushHistory(); const last=drawingRef.current.last||start; const sx=gridOn?Math.round(start.x/5)*5:start.x; const sy=gridOn?Math.round(start.y/5)*5:start.y; const ex=gridOn?Math.round(last.x/5)*5:last.x; const ey=gridOn?Math.round(last.y/5)*5:last.y; const w=ex-sx, h=ey-sy; setShapes(prev=>[...prev,{ t:tool, x:sx, y:sy, w, h, color, size } as Shape]); clearOverlay() }
-    } else if (tool==='select' && selectionRef.current){ pushHistory(); selectionRef.current=null }
+      const start=drawingRef.current.shapeStart; if (start){ pushHistory(); const last=drawingRef.current.last||start; const sx=gridOn?Math.round(start.x/5)*5:start.x; const sy=gridOn?Math.round(start.y/5)*5:start.y; const ex=gridOn?Math.round(last.x/5)*5:last.x; const ey=gridOn?Math.round(last.y/5)*5:last.y; const w=ex-sx, h=ey-sy; const newShape={ t:tool, x:sx, y:sy, w, h, color, size } as Shape; setShapes(prev=>{ const next=[...prev,newShape]; syncBoard({ shapes: next }); return next }); clearOverlay() }
+    } else if (tool==='select' && selectionRef.current){ pushHistory(); selectionRef.current=null; syncBoard() }
     else if (tool==='snap' && snapRectRef.current){ const r=snapRectRef.current; const sx=Math.min(r.sx,r.ex), sy=Math.min(r.sy,r.ey); const w=Math.abs(r.ex-r.sx), h=Math.abs(r.ey-r.sy); snapshotToTakeaway(sx,sy,w,h); snapRectRef.current=null; clearOverlay() }
-    else if (drawingRef.current.draft){ pushHistory(); setStrokes(prev=>[...prev, drawingRef.current.draft!]) }
+    else if (drawingRef.current.draft){ const stroke = drawingRef.current.draft!; pushHistory(); setStrokes(prev=>[...prev, stroke]);
+      if (roomId && liveIdRef.current){
+        const sid = liveIdRef.current
+        const remain = liveBufRef.current.splice(0)
+        if (remain.length>0){ try { await fetch(`/api/rooms/${roomId}/board`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'live_points', strokeId: sid, points: remain }) }) } catch {} }
+        try { await fetch(`/api/rooms/${roomId}/board`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'end_live', strokeId: sid }) }) } catch {}
+      } else { syncAddStroke(stroke) }
+    }
     drawingRef.current={active:false,draft:null,shapeStart:null}
+    liveIdRef.current=null
   }
 
   function onDoubleClick(e:React.MouseEvent<HTMLCanvasElement>){
@@ -237,14 +357,15 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
 
   // overlay helpers
   function ensureOverlay(){ const c=canvasRef.current, o=overlayRef.current; if(!c||!o) return; o.width=c.width; o.height=c.height; const ctx=o.getContext('2d')!; ctx.setTransform(1,0,0,1,0,0); const dpr=window.devicePixelRatio||1; ctx.scale(dpr,dpr) }
-  function drawOverlay(draw:(ctx:CanvasRenderingContext2D)=>void){ ensureOverlay(); const o=overlayRef.current; if(!o) return; const ctx=o.getContext('2d')!; ctx.clearRect(0,0,o.width,o.height); draw(ctx) }
-  function clearOverlay(){ const o=overlayRef.current; if(!o) return; const ctx=o.getContext('2d')!; ctx.clearRect(0,0,o.width,o.height) }
+  function drawRemoteLive(ctx: CanvasRenderingContext2D){ ctx.save(); ctx.lineCap='round'; const all = liveStrokesRef.current; for (const k of Object.keys(all)){ const s=all[k]; const pts=s?.points||[]; if(pts.length<2) continue; ctx.strokeStyle=s.color; ctx.lineWidth=s.size; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for(let i=1;i<pts.length;i++){ const p=pts[i]; if(p) ctx.lineTo(p.x,p.y) } ctx.stroke() } ctx.restore() }
+  function drawOverlay(draw:(ctx:CanvasRenderingContext2D)=>void){ ensureOverlay(); const o=overlayRef.current; if(!o) return; const ctx=o.getContext('2d')!; ctx.clearRect(0,0,o.width,o.height); draw(ctx); drawRemoteLive(ctx) }
+  function clearOverlay(){ const o=overlayRef.current; if(!o) return; const ctx=o.getContext('2d')!; ctx.clearRect(0,0,o.width,o.height); drawRemoteLive(ctx) }
 
   // laser
   const laserDotsRef = useRef<{x:number;y:number;at:number}[]>([])
   const rafRef = useRef<number|null>(null)
   function addLaserDot(x:number,y:number){ laserDotsRef.current.push({x,y,at:Date.now()}); if(!rafRef.current) rafRef.current=requestAnimationFrame(stepLaser) }
-  function stepLaser(){ const o=overlayRef.current; if(!o){ rafRef.current=null; return } ensureOverlay(); const ctx=o.getContext('2d')!; const now=Date.now(), life=1500; laserDotsRef.current=laserDotsRef.current.filter(d=>now-d.at<life); ctx.clearRect(0,0,o.width,o.height); for(const d of laserDotsRef.current){ const t=(now-d.at)/life; const alpha=Math.max(0,1-t); ctx.beginPath(); ctx.fillStyle=`rgba(239,68,68,${alpha})`; ctx.arc(d.x,d.y,8,0,Math.PI*2); ctx.fill() } if(laserDotsRef.current.length>0) rafRef.current=requestAnimationFrame(stepLaser); else rafRef.current=null }
+  function stepLaser(){ const o=overlayRef.current; if(!o){ rafRef.current=null; return } ensureOverlay(); const ctx=o.getContext('2d')!; const now=Date.now(), life=1500; laserDotsRef.current=laserDotsRef.current.filter(d=>now-d.at<life); ctx.clearRect(0,0,o.width,o.height); drawRemoteLive(ctx); for(const d of laserDotsRef.current){ const t=(now-d.at)/life; const alpha=Math.max(0,1-t); ctx.beginPath(); ctx.fillStyle=`rgba(239,68,68,${alpha})`; ctx.arc(d.x,d.y,8,0,Math.PI*2); ctx.fill() } if(laserDotsRef.current.length>0) rafRef.current=requestAnimationFrame(stepLaser); else rafRef.current=null }
 
   // utils
   function pointSegDist(px:number,py:number,x1:number,y1:number,x2:number,y2:number){ const A=px-x1,B=py-y1,C=x2-x1,D=y2-y1; const dot=A*C+B*D; const len=C*C+D*D; let t=len?dot/len:-1; t=Math.max(0,Math.min(1,t)); const xx=x1+t*C, yy=y1+t*D; const dx=px-xx, dy=py-yy; return Math.sqrt(dx*dx+dy*dy) }
@@ -312,8 +433,8 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     </div>
   )
 
-  function commitText(){ if(!textbox) return; const v=textbox.value.trim(); if(v){ pushHistory(); setTexts(arr=>[...arr,{ x:textbox.x, y:textbox.y, text:v, color, size, weight }]) } setTextbox(null) }
-  function commitNoteEdit(){ if(!noteEdit) return; pushHistory(); setNotes(arr=>arr.map((n,i)=> i!==noteEdit.idx? n : { ...n, text: noteEdit.value })); setNoteEdit(null) }
+  function commitText(){ if(!textbox) return; const v=textbox.value.trim(); if(v){ pushHistory(); setTexts(arr=>{ const next=[...arr,{ x:textbox.x, y:textbox.y, text:v, color, size, weight }]; syncBoard({ texts: next }); return next }) } setTextbox(null) }
+  function commitNoteEdit(){ if(!noteEdit) return; pushHistory(); setNotes(arr=>{ const next=arr.map((n,i)=> i!==noteEdit.idx? n : { ...n, text: noteEdit.value }); syncBoard({ notes: next }); return next }); setNoteEdit(null) }
 }
 
 function wrapFillText(ctx:CanvasRenderingContext2D, text:string, x:number, y:number, maxWidth:number, lineHeight:number){
