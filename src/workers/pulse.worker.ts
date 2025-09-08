@@ -1,79 +1,118 @@
-// Minimal pulse worker: compute a pseudo focus score from frames (brightness + motion)
+import { FaceLandmarker, FilesetResolver, DrawingUtils } from '@mediapipe/tasks-vision'
 
-type Backend = 'heuristic' | 'face-lite'
-export type MsgIn = { type: 'frame'; frame: ImageBitmap; ts: number } | { type: 'config'; backend?: Backend }
+type MsgIn = { type: 'frame'; frame: ImageBitmap; ts: number }
 
-let lastImage: ImageData | null = null
+let faceLandmarker: FaceLandmarker | null = null
 let lastTs = 0
 let ewma = 0.6
-let backend: Backend = 'heuristic'
 
 function clamp(x: number, a: number, b: number) { return Math.max(a, Math.min(b, x)) }
 
+async function init() {
+  const filesetResolver = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm")
+  faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+    baseOptions: {
+      modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+      delegate: "GPU"
+    },
+    outputFaceBlendshapes: true,
+    outputFacialTransformationMatrixes: true,
+    runningMode: "VIDEO",
+    numFaces: 1
+  })
+  postMessage({ type: 'ready' })
+}
+
+init()
+
+// Basic gaze estimation: check how far from center the pupils are.
+// This is a simplification. True gaze requires calibration and more complex models.
+function estimateGaze(landmarks: any[], frame: ImageBitmap) {
+  if (!landmarks || landmarks.length === 0) return { gazeScore: 0, headX: 0, headY: 0 }
+  const [face] = landmarks
+  // Key landmarks for pupils
+  const leftPupil = face[473] // Left eye pupil
+  const rightPupil = face[468] // Right eye pupil
+
+  if (!leftPupil || !rightPupil) return { gazeScore: 0, headX: 0, headY: 0 }
+
+  const pupilX = (leftPupil.x + rightPupil.x) / 2
+  const pupilY = (leftPupil.y + rightPupil.y) / 2
+
+  const dx = Math.abs(pupilX - 0.5)
+  const dy = Math.abs(pupilY - 0.5)
+
+  // Gaze score: 1 when centered, 0 when at edge of screen.
+  const gazeScore = clamp(1 - Math.sqrt(dx * dx + dy * dy) * 2, 0, 1)
+
+  return { gazeScore, headX: dx, headY: dy }
+}
+
 onmessage = async (ev: MessageEvent<MsgIn>) => {
   const m = ev.data
-  if (!m) return
-  if (m.type === 'config') { backend = m.backend || 'heuristic'; return }
-  if (m.type !== 'frame') return
+  if (!m || m.type !== 'frame' || !faceLandmarker) return
+
   const { frame, ts } = m
+
   try {
-    const w = 96, h = 54
-    const canvas = new OffscreenCanvas(w, h)
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(frame, 0, 0, w, h)
-    const img = ctx.getImageData(0, 0, w, h)
-    const data = img.data
-    // features (placeholder for face-lite backend)
-    let mean = 0, stdev = 0, motion = 0
-    {
-      let sum = 0, varsum = 0
-      for (let i=0;i<data.length;i+=4){ const r=data[i], g=data[i+1], b=data[i+2]; const y = 0.2126*r + 0.7152*g + 0.0722*b; sum += y; varsum += y*y }
-      const n = (data.length/4)
-      mean = sum / n
-      stdev = Math.sqrt(Math.max(0, varsum/n - mean*mean))
-      if (lastImage) {
-        const step = 8
-        for (let yy=0;yy<h;yy+=step){ for (let xx=0;xx<w;xx+=step){ const i=(yy*w+xx)*4; const dy= Math.abs(data[i] - lastImage.data[i]) + Math.abs(data[i+1]-lastImage.data[i+1]) + Math.abs(data[i+2]-lastImage.data[i+2]); motion += dy } }
-        motion /= ((w/step)*(h/step))
-      }
-      lastImage = img
+    const result = faceLandmarker.detectForVideo(frame, ts)
+    if (!result || result.faceLandmarks.length === 0) {
+      // No face detected, send low score
+      postMessage({ type: 'pulse', score: 0.2, trend: 0, attn: { gaze: 0, pose: 0, expression: 0 }, quality: { fps: 0 } })
+      return
     }
-    // optional FaceDetector-based focus (face-lite backend)
-    let gazeFocus = 0
-    try {
-      const FD: any = (self as any).FaceDetector
-      if (backend === 'face-lite' && FD) {
-        const det = new FD({ fastMode: true, maxDetectedFaces: 1 })
-        const faces = await det.detect(frame as any)
-        if (faces && faces.length>0) {
-          const f = faces[0]
-          const fw = (frame as any).width || w
-          const fh = (frame as any).height || h
-          const cx = (f.boundingBox.x + f.boundingBox.width/2)/fw
-          const cy = (f.boundingBox.y + f.boundingBox.height/2)/fh
-          const dx = Math.abs(cx - 0.5), dy = Math.abs(cy - 0.5)
-          gazeFocus = clamp(1 - Math.sqrt(dx*dx+dy*dy)*2, 0, 1)
-        }
-      }
-    } catch { /* ignore */ }
-    // fps estimation
-    const dt = ts - lastTs; lastTs = ts
-    const fps = dt>0 ? 1000/dt : 0
-    // heuristic score: good when light moderate and motion not high
-    const normLight = clamp((mean-30)/140, 0, 1) // ~[30..170] best
-    const motionPenalty = clamp(motion/40, 0, 1) // larger -> worse
-    const heuristic = clamp(0.2 + 0.8*normLight - 0.4*motionPenalty - 0.1*(stdev/64), 0, 1)
-    let score = heuristic
-    if (gazeFocus>0) score = clamp(0.5*heuristic + 0.5*gazeFocus, 0, 1)
+
+    const { faceLandmarks, faceBlendshapes, facialTransformationMatrixes } = result
+
+    // 1. Gaze Score
+    const { gazeScore } = estimateGaze(faceLandmarks, frame)
+
+    // 2. Head Pose Score from transformation matrix
+    const matrix = facialTransformationMatrixes![0].data
+    // Simple head pose: pitch (looking down) and yaw (looking away)
+    // These are rough estimations from the rotation matrix elements.
+    const pitch = Math.asin(-matrix[8]) // sin(pitch) is in matrix[8]
+    const yaw = Math.atan2(matrix[9], matrix[10]) // yaw from other elements
+    const posePenalty = clamp(Math.abs(pitch) * 2 + Math.abs(yaw) * 0.5, 0, 1)
+    const poseScore = 1 - posePenalty
+
+    // 3. Expression Score from Blendshapes
+    const blendshapes = faceBlendshapes![0].categories
+    const browDown = (blendshapes.find(c => c.categoryName === 'browDownLeft')?.score ?? 0 + blendshapes.find(c => c.categoryName === 'browDownRight')?.score ?? 0) / 2
+    const mouthPress = blendshapes.find(c => c.categoryName === 'mouthPressLeft')?.score ?? 0 + blendshapes.find(c => c.categoryName === 'mouthPressRight')?.score ?? 0
+
+    // Confusion/Concentration is often tied to browDown.
+    // We'll treat it as a positive indicator for focus, up to a point.
+    const expressionScore = clamp(0.5 + browDown * 0.5 - mouthPress * 0.2, 0, 1)
+
+    // Combine scores (MVP heuristic)
+    // Gaze is most important, followed by pose, then expression.
+    const weights = { gaze: 0.5, pose: 0.3, expression: 0.2 }
+    let score = gazeScore * weights.gaze + poseScore * weights.pose + expressionScore * weights.expression
+
+    // FPS estimation
+    const dt = ts - lastTs
+    lastTs = ts
+    const fps = dt > 0 ? 1000 / dt : 0
+
     // EWMA smoothing
     const alpha = 0.15
-    ewma = (1-alpha)*ewma + alpha*score
+    ewma = (1 - alpha) * ewma + alpha * score
     const trend = clamp(score - ewma, -1, 1)
-    const attn = { gaze: clamp(gazeFocus>0? gazeFocus : ewma,0,1), audio: 0, hr: 0 }
-    const quality = { light: Math.round(mean), fps: Math.round(fps) }
-    ;(postMessage as any)({ type:'pulse', score: ewma, trend, attn, quality })
-  } catch {
-    // ignore
+
+    const attn = {
+      gaze: gazeScore,
+      pose: poseScore,
+      expression: expressionScore,
+      audio: 0,
+      hr: 0
+    }
+    const quality = { fps: Math.round(fps) }
+
+    postMessage({ type: 'pulse', score: ewma, trend, attn, quality })
+
+  } catch (e) {
+    // console.error(e)
   } finally {
     try { frame.close() } catch {}
   }

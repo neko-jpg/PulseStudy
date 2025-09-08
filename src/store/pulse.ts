@@ -2,13 +2,12 @@
 
 import { create } from 'zustand'
 
-type Attn = { gaze: number; audio: number; hr: number }
-type Quality = { light: number; fps: number }
+type Attn = { gaze: number; pose: number; expression: number; audio: number; hr: number }
+type Quality = { fps: number }
 
 type PulseState = {
   running: boolean
   consent: { camera: boolean; mic: boolean; telemetry?: boolean }
-  backend?: 'heuristic'|'face-lite'
   config?: { distractionThreshold: number; distractionDurationMs: number; nudgeCooldownMs: number; pointsIntervalMs: number; batchSec: number }
   score: number
   trend: number
@@ -20,7 +19,6 @@ type PulseState = {
   start: () => Promise<void>
   stop: () => void
   setConsent: (v: Partial<PulseState['consent']>) => void
-  setBackend: (b: 'heuristic'|'face-lite') => void
 }
 
 let _worker: Worker | null = null
@@ -51,16 +49,14 @@ function saveAgg(score:number){
 export const usePulseStore = create<PulseState>((set, get) => ({
   running: false,
   consent: { camera: false, mic: false, telemetry: false },
-  backend: 'heuristic',
   config: { distractionThreshold: 0.6, distractionDurationMs: 5000, nudgeCooldownMs: 5000, pointsIntervalMs: 60000, batchSec: 5 },
   score: 0,
   trend: 0,
-  attn: { gaze: 0.5, audio: 0.0, hr: 0.0 },
-  quality: { light: 0, fps: 0 },
+  attn: { gaze: 0.5, pose: 0.5, expression: 0.5, audio: 0.0, hr: 0.0 },
+  quality: { fps: 0 },
   sessionId: sid(),
   focusPoints: 0,
   setConsent(v){ set((s)=> ({ consent: { ...s.consent, ...v } })) },
-  setBackend(b){ set({ backend: b }); if (_worker){ try { _worker.postMessage({ type:'config', backend: b }) } catch {} } },
   async start(){
     if (get().running) return
     // camera consent required
@@ -75,26 +71,31 @@ export const usePulseStore = create<PulseState>((set, get) => ({
       await video.play()
       const worker = new Worker(new URL('../workers/pulse.worker.ts', import.meta.url))
       _worker = worker
-      // send initial config
-      try { worker.postMessage({ type:'config', backend: get().backend||'heuristic' }) } catch {}
+
+      const sendFrame = async () => {
+        if (!get().running || !_worker) return
+        try {
+          const bmp = await createImageBitmap(video)
+          _worker.postMessage({ type: 'frame', frame: bmp, ts: performance.now() }, [bmp as any])
+        } catch {}
+        _raf = requestAnimationFrame(sendFrame)
+      }
+
       worker.onmessage = (ev) => {
         const m = ev.data
+        if (m?.type === 'ready') {
+          // Worker is ready, start sending frames.
+          set({ running: true })
+          _raf = requestAnimationFrame(sendFrame)
+          return
+        }
         if (m?.type === 'pulse') {
           set({ score: m.score, trend: m.trend, attn: m.attn, quality: m.quality })
           try { _bc?.postMessage({ type:'pulse', score: m.score }) } catch {}
           saveAgg(m.score)
         }
       }
-      const sendFrame = async () => {
-        if (!_worker) return
-        try {
-          // capture current frame as ImageBitmap (cheap path)
-          const bmp = await createImageBitmap(video)
-          _worker.postMessage({ type: 'frame', frame: bmp, ts: performance.now() }, [bmp as any])
-        } catch {}
-        _raf = requestAnimationFrame(sendFrame)
-      }
-      _raf = requestAnimationFrame(sendFrame)
+
       if (_eventTimer) clearInterval(_eventTimer)
       let lowSince = 0
       _eventTimer = setInterval(async ()=>{
@@ -117,8 +118,6 @@ export const usePulseStore = create<PulseState>((set, get) => ({
         if (get().consent.telemetry) { try { await fetch('/api/pulse/samples', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ score: s }) }) } catch {} }
       }, get().config?.pointsIntervalMs || 60000)
       try { _bc = new BroadcastChannel('pulse'); _bc.onmessage = (e)=>{ const m=e.data; if(m?.type==='pulse'){ set({ score: m.score }) } } } catch {}
-
-      set({ running: true })
     } catch {
       set({ running: false })
     }
