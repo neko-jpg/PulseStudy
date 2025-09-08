@@ -64,4 +64,12 @@ export type RoomSession = {
   members: RoomMember[]
   stamps: { like: number; ask: number; idea: number }
   quiz?: RoomQuiz
+  // Extensions for collab control and privacy
+  solverId?: string
+  hostId?: string
+  privacy?: 'open' | 'approval'
+  pendingControlRequests?: string[] // userIds
+  pendingJoins?: RoomMember[]
+  inviteTokens?: { token: string; exp: number }[]
+  lastStampAt?: Record<string, number>
 }
