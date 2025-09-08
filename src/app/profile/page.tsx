@@ -14,6 +14,7 @@ import { UpgradeCard } from '@/components/profile/UpgradeCard'
 import './profile.css'
 import { BadgeShelf } from '@/components/profile/BadgeShelf'
 import { BestTimeCard } from '@/components/profile/BestTimeCard'
+import { PulseSummaryCard } from '@/components/profile/PulseSummaryCard'
 
 type Summary = { mins:number; acc:number; streak:number; badges:number }
 type Goals = { dailyMins:number; weeklyMins:number }
@@ -96,6 +97,7 @@ export default function ProfilePage() {
   return (
     <div className="p-4 space-y-3">
       <ProfileHeader user={data.user} summary={data.summary} />
+      <PulseSummaryCard />
       {plan === 'plus' ? <BestTimeCard /> : <UpgradeCard onUpgraded={() => setPlan('plus')} />}
       <GoalCard value={data.goals} onSave={saveGoals} saving={saving.goals} />
       <NotifPrefsCard value={data.notifs} onSave={saveNotifs} saving={saving.notifs} quiet={data.quiet} />

@@ -9,10 +9,13 @@ import { Bell, Flame, Users } from 'lucide-react'
 import { QuickStartCard } from '@/components/home/QuickStartCard'
 import { TaskCard } from '@/components/home/TaskCard'
 import { PulseCard } from '@/components/home/PulseCard'
+import { PulseConsent } from '@/components/pulse/PulseConsent'
+import { PulseWidget } from '@/components/pulse/PulseWidget'
 import { ChallengeStrip } from '@/components/home/ChallengeStrip'
 import { track } from '@/lib/analytics'
 import { useHomeStore, type ModuleSummary } from '@/store/homeStore'
 import './home.css'
+import { PulseNudge } from '@/components/pulse/PulseNudge'
 
 type HomeApi = {
   quickstart: ModuleSummary
@@ -81,6 +84,7 @@ export default function HomePage() {
 
   return (
     <div className="home-container">
+      <PulseNudge />
       <header className="home-header">
         <div className="header-top">
           <div className="user-info">
@@ -109,6 +113,11 @@ export default function HomePage() {
         <div className="greeting"><h1>今日も学びを高めましょう</h1></div>
         <div className="date" aria-live="polite">{today}</div>
       </header>
+
+      <div className="px-4 py-2 flex items-center justify-end gap-3">
+        <PulseWidget />
+        <PulseConsent />
+      </div>
 
       <div className="container-inner">
         <section className="quick-start" aria-label="続きから">
