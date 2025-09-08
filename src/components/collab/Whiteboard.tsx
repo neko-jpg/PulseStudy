@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { track } from '@/lib/analytics'
 
 type Stroke = { color: string; size: number; points: { x:number; y:number }[] }
@@ -35,30 +35,49 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
   const [textbox, setTextbox] = useState<{ x:number; y:number; value:string }|null>(null)
   const [noteEdit, setNoteEdit] = useState<{ idx:number; value:string }|null>(null)
 
+  // resize helpers
+  function doResize() {
+    const c = canvasRef.current, parent = containerRef.current
+    if (!c || !parent) return
+    const dpr = window.devicePixelRatio || 1
+    c.style.width = '100%'
+    c.style.height = '100%'
+    c.width = Math.max(1, Math.floor(parent.clientWidth * dpr))
+    c.height = Math.max(1, Math.floor(parent.clientHeight * dpr))
+    const ctx = c.getContext('2d')!
+    ctx.setTransform(1,0,0,1,0,0)
+    ctx.scale(dpr, dpr)
+    ensureOverlay()
+    redraw()
+  }
+
   // size to container
   useEffect(() => {
-    function resize() {
-      const c = canvasRef.current, parent = containerRef.current
-      if (!c || !parent) return
-      const dpr = window.devicePixelRatio || 1
-      c.width = parent.clientWidth * dpr
-      c.height = parent.clientHeight * dpr
-      const ctx = c.getContext('2d')!
-      ctx.setTransform(1,0,0,1,0,0)
-      ctx.scale(dpr, dpr)
-      redraw()
-      ensureOverlay()
-    }
-    resize()
+    function resize() { requestAnimationFrame(() => requestAnimationFrame(() => doResize())) }
+    doResize()
     const ro = new ResizeObserver(resize)
     if (containerRef.current) ro.observe(containerRef.current)
     return () => ro.disconnect()
   }, [])
 
+  // force resize when fullscreen toggles
+  useLayoutEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => doResize()))
+    return () => cancelAnimationFrame(id)
+  }, [fs])
+
+  // optional: listen to native fullscreen change
+  useEffect(() => {
+    const onFs = () => doResize()
+    document.addEventListener('fullscreenchange', onFs)
+    return () => document.removeEventListener('fullscreenchange', onFs)
+  }, [])
+
   const redraw = () => {
     const c = canvasRef.current; if (!c) return
-    const ctx = c.getContext('2d')!
+    const ctx = c.getContext('2d'); if (!ctx) return
     ctx.save()
+    ctx.setTransform(1,0,0,1,0,0)
     ctx.clearRect(0,0,c.width,c.height)
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0,0,c.width,c.height)
@@ -73,36 +92,84 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     }
     // strokes
     ctx.lineCap='round'
-    for (const s of strokes) {
-      ctx.strokeStyle = s.color; ctx.lineWidth = s.size
+    const safeStrokes = Array.isArray(strokes) ? strokes.filter(Boolean) : []
+    for (const sAny of safeStrokes) {
+      const s = sAny as any
+      const scolor = typeof s?.color === 'string' ? s.color : '#111827'
+      const ssize  = Number.isFinite(s?.size) ? s.size : 2
+      const pts    = Array.isArray(s?.points) ? s.points.filter(Boolean) : []
+      if (pts.length < 2) continue
+      ctx.strokeStyle = scolor
+      ctx.lineWidth = ssize
       ctx.beginPath()
-      for (let i=0;i<s.points.length-1;i++){ const a=s.points[i], b=s.points[i+1]; ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y) }
+      const a0 = pts[0]; if (!a0) continue
+      ctx.moveTo(a0.x, a0.y)
+      for (let i=1;i<pts.length;i++){ const p=pts[i]; if(!p) continue; ctx.lineTo(p.x,p.y) }
       ctx.stroke()
     }
-    // shapes
-    for (const sh of shapes) {
-      ctx.strokeStyle = sh.color; ctx.lineWidth = sh.size
+    // shapes (defensive)
+    for (const shAny of Array.isArray(shapes) ? shapes.filter(Boolean) : []) {
+      const sh = shAny as any
+      if (!sh || typeof sh !== 'object' || sh.color == null) continue
+      ctx.strokeStyle = typeof sh.color === 'string' ? sh.color : '#111827'
+      ctx.lineWidth = Number.isFinite(sh.size) ? sh.size : 1
       if (sh.t==='line'){ ctx.beginPath(); ctx.moveTo(sh.x,sh.y); ctx.lineTo(sh.x+sh.w, sh.y+sh.h); ctx.stroke() }
       else { ctx.strokeRect(sh.x, sh.y, sh.w, sh.h) }
     }
     // notes
-    for (const n of notes) {
-      ctx.fillStyle = n.color; ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth=1
-      ctx.fillRect(n.x,n.y,n.w,n.h); ctx.strokeRect(n.x,n.y,n.w,n.h)
+    const safeNotes = Array.isArray(notes) ? notes.filter(Boolean) : []
+    for (const nAny of safeNotes) {
+      const n = nAny as any
+      if (!n || typeof n !== 'object') continue
+      ctx.fillStyle = typeof n.color === 'string' ? n.color : '#fef08a'
+      ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth=1
+      const nx = Number.isFinite(n.x)?n.x:0, ny=Number.isFinite(n.y)?n.y:0
+      const nw = Number.isFinite(n.w)?n.w:120, nh=Number.isFinite(n.h)?n.h:80
+      ctx.fillRect(nx,ny,nw,nh); ctx.strokeRect(nx,ny,nw,nh)
       ctx.fillStyle = '#111827'
-      ctx.font = `${Math.max(12,size)}px ${weight==='bold'?'600':'400'} ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial`
+      const ts = Math.max(12, Number.isFinite(size)?size:12)
+      ctx.font = `${ts}px ${weight==='bold'?'600':'400'} ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial`
       ctx.textBaseline = 'top'
-      wrapFillText(ctx, n.text, n.x+8, n.y+8, n.w-16, Math.max(12,size)*1.4)
+      wrapFillText(ctx, String(n.text ?? ''), nx+8, ny+8, nw-16, ts*1.4)
     }
     // texts
-    for (const t of texts) {
-      ctx.fillStyle = t.color
-      ctx.font = `${t.size}px ${t.weight==='bold'?'600':'400'} ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial`
+    const safeTexts = Array.isArray(texts) ? texts.filter(Boolean) : []
+    for (const tAny of safeTexts) {
+      const t = tAny as any
+      const tcolor = typeof t?.color === 'string' ? t.color : '#111827'
+      const tsize  = Number.isFinite(t?.size) ? t.size : 14
+      const tw     = t?.weight==='bold'?'600':'400'
+      const tx     = Number.isFinite(t?.x)?t.x:0
+      const ty     = Number.isFinite(t?.y)?t.y:0
+      ctx.fillStyle = tcolor
+      ctx.font = `${tsize}px ${tw} ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial`
       ctx.textBaseline = 'top'
-      wrapFillText(ctx, t.text, t.x, t.y, width - t.x - 8, t.size*1.4)
+      wrapFillText(ctx, String(t?.text ?? ''), tx, ty, width - tx - 8, tsize*1.4)
     }
   }
   useEffect(() => { redraw() }, [strokes,shapes,texts,notes,gridOn,weight,size])
+  // sanitize state defensively (HMR/復元時のnull混入対策)
+  useEffect(() => {
+    const s = Array.isArray(strokes) ? strokes : []
+    if (s.some((x:any)=>!x || !Array.isArray(x.points))) {
+      const fixed = s.filter(Boolean).map((x:any)=>({ color: typeof x.color==='string'?x.color:'#111827', size: Number.isFinite(x.size)?x.size:2, points: Array.isArray(x.points)?x.points.filter(Boolean):[] }))
+      setStrokes(fixed as any)
+    }
+  }, [strokes])
+  useEffect(() => {
+    const arr = Array.isArray(shapes) ? shapes : []
+    if (arr.some((x:any)=>!x || x.color==null)) {
+      const fixed = arr.filter(Boolean)
+      setShapes(fixed as any)
+    }
+  }, [shapes])
+  useEffect(() => {
+    const arr = Array.isArray(texts) ? texts : []
+    if (arr.some((t:any)=>!t || t.text==null)) {
+      const fixed = arr.filter(Boolean).map((t:any)=>({ x:Number.isFinite(t?.x)?t.x:0, y:Number.isFinite(t?.y)?t.y:0, text:String(t?.text??''), color: typeof t?.color==='string'?t.color:'#111827', size: Number.isFinite(t?.size)?t.size:14, weight: t?.weight==='bold'?'bold':'normal' }))
+      setTexts(fixed as any)
+    }
+  }, [texts])
 
   function pushHistory(){ historyRef.current.push({ strokes:JSON.parse(JSON.stringify(strokes)), shapes:JSON.parse(JSON.stringify(shapes)), texts:JSON.parse(JSON.stringify(texts)), notes:JSON.parse(JSON.stringify(notes)) }); if(historyRef.current.length>100) historyRef.current.shift(); redoRef.current=[] }
   function undo(){ const prev=historyRef.current.pop(); if(!prev) return; redoRef.current.push({strokes,shapes,texts,notes}); setStrokes(prev.strokes); setShapes(prev.shapes); setTexts(prev.texts); setNotes(prev.notes) }
@@ -111,6 +178,8 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
 
   function getPos(e:React.PointerEvent){ const rect=(e.target as HTMLElement).getBoundingClientRect(); return { x:e.clientX-rect.left, y:e.clientY-rect.top } }
   function onPointerDown(e:React.PointerEvent<HTMLCanvasElement>){
+    e.preventDefault()
+    try { (e.target as any).setPointerCapture?.(e.pointerId) } catch {}
     if (tool==='pen'||tool==='eraser'){
       const p=getPos(e); const stroke:Stroke={color: tool==='eraser'?'#ffffff':color, size: tool==='eraser'?Math.max(10,size*6):size, points:[p]}; drawingRef.current={active:true,last:p,draft:stroke,shapeStart:null}
     } else if (tool==='text'){
@@ -137,6 +206,7 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     }
   }
   function onPointerMove(e:React.PointerEvent<HTMLCanvasElement>){
+    e.preventDefault()
     const p=getPos(e)
     if (tool==='laser'){ addLaserDot(p.x,p.y); return }
     if (tool==='select' && selectionRef.current){ const sel=selectionRef.current; if (sel.kind==='note'){ const i=sel.idx; if (sel.resize){ setNotes(arr=>arr.map((n,idx)=> idx!==i?n:{...n, w:Math.max(60,p.x-n.x), h:Math.max(40,p.y-n.y)})) } else { setNotes(arr=>arr.map((n,idx)=> idx!==i?n:{...n, x:p.x-sel.ox, y:p.y-sel.oy})) } return } if (sel.kind==='text'){ const i=sel.idx; setTexts(arr=>arr.map((t,idx)=> idx!==i?t:{...t, x:p.x-sel.ox, y:p.y-sel.oy})); return } if (sel.kind==='shape'||sel.kind==='line'){ const i=sel.idx; setShapes(arr=>arr.map((s,idx)=> idx!==i?s:{...s, x:p.x-sel.ox, y:p.y-sel.oy})); return } }
@@ -146,7 +216,10 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     }
     if (tool==='snap' && snapRectRef.current){ const r=snapRectRef.current; r.ex=p.x; r.ey=p.y; drawOverlay((ctx)=>{ ctx.setLineDash([6,4]); ctx.strokeStyle='#111827'; ctx.strokeRect(r.sx,r.sy,r.ex-r.sx,r.ey-r.sy); ctx.setLineDash([]) }); return }
     if (!drawingRef.current.active || !drawingRef.current.draft) return
-    const d=drawingRef.current.draft; d.points.push(p); setStrokes(prev=>prev.slice())
+    const d=drawingRef.current.draft
+    if (!Array.isArray(d.points)) d.points = []
+    d.points.push(p)
+    setStrokes(prev=>prev.slice())
   }
   function onPointerUp(){
     if (tool==='line'||tool==='rect'){
@@ -214,7 +287,17 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
           <button className="tool-button" onClick={clearAll} title="クリア">🗑</button>
         </div>
       </div>
-      <canvas ref={canvasRef} className="w-full h-full block" onPointerDown={onPointerDown} onPointerMove={(e)=>{ drawingRef.current.last=getPos(e); onPointerMove(e) }} onPointerUp={onPointerUp} onDoubleClick={onDoubleClick} />
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full block"
+        onPointerDown={onPointerDown}
+        onPointerMove={(e)=>{ drawingRef.current.last=getPos(e); onPointerMove(e) }}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onContextMenu={(e)=>e.preventDefault()}
+        onDoubleClick={onDoubleClick}
+      />
       <canvas ref={overlayRef} className="w-full h-full block absolute inset-0 pointer-events-none" />
       {textbox && (
         <div style={{ position:'absolute', left:textbox.x, top:textbox.y }} className="bg-white border rounded shadow p-1">
@@ -238,4 +321,3 @@ function wrapFillText(ctx:CanvasRenderingContext2D, text:string, x:number, y:num
   for(let n=0;n<words.length;n++){ const test=line+(line?' ':'')+words[n]; const w=ctx.measureText(test).width; if(w>maxWidth && n>0){ ctx.fillText(line,x,yy); line=words[n]; yy+=lineHeight } else { line=test } }
   ctx.fillText(line,x,yy)
 }
-

@@ -237,6 +237,10 @@
   cursor: crosshair;
 }
 
+/* Robust canvas interaction */
+.whiteboard-container, .whiteboard-container > div { height: 100%; }
+.whiteboard-container canvas { touch-action: none; user-select: none; display: block; }
+
 .whiteboard-tools {
   position: absolute;
   top: 16px;

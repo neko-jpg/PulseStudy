@@ -13,19 +13,19 @@ type Props = {
   children: React.ReactNode
 }
 
-const STORAGE_KEY = 'collabLayout:v1'
+function storageKey(roomId?: string) { return `collabLayout:v1:${roomId || 'global'}` }
 
-function loadLayout(): Record<string, number> {
+function loadLayout(roomId?: string): Record<string, number> {
   if (typeof window === 'undefined') return {}
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
+  try { return JSON.parse(localStorage.getItem(storageKey(roomId)) || '{}') } catch { return {} }
 }
-function saveLayout(map: Record<string, number>) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map)) } catch {}
+function saveLayout(roomId: string | undefined, map: Record<string, number>) {
+  try { localStorage.setItem(storageKey(roomId), JSON.stringify(map)) } catch {}
 }
 
 export function ResizablePanel({ id, title, min = 0, max = 600, initial = 200, roomId, children }: Props) {
   const [h, setH] = useState<number>(() => {
-    const m = loadLayout()
+    const m = loadLayout(roomId)
     return typeof m[id] === 'number' ? m[id] : initial
   })
   const hRef = useRef(h)
@@ -33,7 +33,7 @@ export function ResizablePanel({ id, title, min = 0, max = 600, initial = 200, r
 
   useEffect(() => { hRef.current = h }, [h])
   useEffect(() => {
-    const m = loadLayout(); m[id] = h; saveLayout(m)
+    const m = loadLayout(roomId); m[id] = h; saveLayout(roomId, m)
     setCollapsed(h <= Math.max(0, min))
   }, [h, id, min])
 
@@ -50,6 +50,8 @@ export function ResizablePanel({ id, title, min = 0, max = 600, initial = 200, r
       window.removeEventListener('mousemove', mm)
       window.removeEventListener('mouseup', mu)
       try { track({ name: 'room_panel_resize', props: { panelId: id, height: hRef.current, roomId } }) } catch {}
+      // Give layout a frame to settle, then notify interested observers
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
     }
     window.addEventListener('mousemove', mm)
     window.addEventListener('mouseup', mu)
