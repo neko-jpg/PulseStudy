@@ -1,14 +1,20 @@
 import { NextResponse } from 'next/server'
 import { getRoom, joinRoom, validateToken } from '../../../rooms/state'
+import { z } from 'zod'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const room = getRoom(id)
   if (!room) return NextResponse.json({ ok: false }, { status: 404 })
   const body = await req.json().catch(() => ({}))
-  const name = body?.name as string | undefined
-  const code = body?.code as string | undefined
-  const t = body?.t as string | undefined
+  const schema = z.object({
+    name: z.string().min(1).max(64).optional(),
+    code: z.string().min(1).max(64).optional(),
+    t: z.string().min(1).max(128).optional(),
+  })
+  const parsed = schema.safeParse(body)
+  if (!parsed.success) return new Response('Bad Request', { status: 400 })
+  const { name, code, t } = parsed.data
 
   // Approval mode: if not invited via valid token/code, pend join
   const invited = !!code || validateToken(id, t)

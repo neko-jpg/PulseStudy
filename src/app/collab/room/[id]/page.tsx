@@ -256,6 +256,25 @@ function RoomInner() {
         </div>
       </header>
 
+      {meId && hostId === meId && pendingJoins.length > 0 && (
+        <div className="px-4 py-3">
+          <div className="p-2 bg-amber-50 border border-amber-200 rounded">
+            <div className="text-sm font-semibold mb-1">入室承認待ち（{pendingJoins.length}）</div>
+            <div className="flex flex-col gap-2">
+              {pendingJoins.map((m)=> (
+                <div key={m.id} className="flex items-center justify-between gap-2">
+                  <div className="text-sm truncate">{m.name} <span className="text-xs text-muted-foreground">({m.id})</span></div>
+                  <div className="flex items-center gap-2">
+                    <button className="control-button" onClick={async ()=>{ await fetch(`/api/rooms/${room!.id}/approval`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'approve', userId: m.id }) }); track({ name:'room_join_approve', props:{ id: room!.id, userId: m.id } }) }} aria-label="承認">✅</button>
+                    <button className="control-button" onClick={async ()=>{ await fetch(`/api/rooms/${room!.id}/approval`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'deny', userId: m.id }) }); track({ name:'room_join_deny', props:{ id: room!.id, userId: m.id } }) }} aria-label="拒否">🗙</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="room-main">
         <aside className={`participants-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
           <div className="sidebar-header">

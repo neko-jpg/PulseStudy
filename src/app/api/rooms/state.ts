@@ -8,28 +8,57 @@ import type {
 } from '@/lib/types'
 import { promises as fs } from 'fs'
 import path from 'path'
+import { log } from '@/lib/server-logger'
 
 declare global {
   // eslint-disable-next-line no-var
   var __rooms: Map<string, RoomSession> | undefined
+  var __sweepTimer: any | undefined
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data')
 const DATA_FILE = path.join(DATA_DIR, 'rooms.json')
+const TMP_FILE = path.join(DATA_DIR, 'rooms.json.tmp')
 let persistTimer: any = null
+let persistLock = false
+const LIVE_TTL_MS = 10_000
 
 function ensure(): Map<string, RoomSession> {
   if (!globalThis.__rooms) {
     globalThis.__rooms = new Map()
     try { void loadPersisted() } catch {}
+    // start live sweep once
+    try {
+      if (!globalThis.__sweepTimer) {
+        globalThis.__sweepTimer = setInterval(() => {
+          try { sweepLive() } catch {}
+        }, 2_000)
+      }
+    } catch {}
   }
   return globalThis.__rooms
 }
 
 async function loadPersisted() {
   try {
-    const txt = await fs.readFile(DATA_FILE, 'utf-8')
-    const raw = JSON.parse(txt) as Record<string, RoomSession>
+    let raw: Record<string, RoomSession> | null = null
+    const url = process.env.UPSTASH_REDIS_REST_URL
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN
+    if (url && token) {
+      try {
+        const r = await fetch(`${url}/get/rooms:v1`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+        if (r.ok) {
+          const js = await r.json()
+          if (js && typeof js.result === 'string') raw = JSON.parse(js.result)
+        }
+      } catch (e:any) {
+        log('persist_redis_load_error', 'warn', { message: e?.message })
+      }
+    }
+    if (!raw) {
+      const txt = await fs.readFile(DATA_FILE, 'utf-8')
+      raw = JSON.parse(txt) as Record<string, RoomSession>
+    }
     const map = ensure()
     for (const id of Object.keys(raw || {})) map.set(id, raw[id])
   } catch {}
@@ -38,13 +67,38 @@ async function loadPersisted() {
 function schedulePersist() {
   if (persistTimer) return
   persistTimer = setTimeout(async () => {
+    if (persistLock) { persistTimer = null; schedulePersist(); return }
+    persistLock = true
     try {
       await fs.mkdir(DATA_DIR, { recursive: true })
       const obj: Record<string, RoomSession> = {}
       for (const [k, v] of ensure().entries()) obj[k] = v
-      await fs.writeFile(DATA_FILE, JSON.stringify(obj), 'utf-8')
-    } catch {}
-    finally { persistTimer = null }
+      const data = JSON.stringify(obj)
+      // Write to tmp file, then rename to ensure atomic replacement
+      await fs.writeFile(TMP_FILE, data, 'utf-8')
+      try {
+        await fs.rename(TMP_FILE, DATA_FILE)
+      } catch {
+        try { await fs.rm(DATA_FILE, { force: true }) } catch {}
+        await fs.rename(TMP_FILE, DATA_FILE)
+      }
+      // Also persist to Upstash Redis REST if configured
+      const url = process.env.UPSTASH_REDIS_REST_URL
+      const token = process.env.UPSTASH_REDIS_REST_TOKEN
+      if (url && token) {
+        try {
+          const r = await fetch(`${url}/set/rooms:v1/${encodeURIComponent(data)}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+          if (!r.ok) log('persist_redis_error', 'warn', { code: r.status })
+        } catch (e:any) {
+          log('persist_redis_exception', 'warn', { message: e?.message })
+        }
+      }
+    } catch {
+      // ignore persistence errors in MVP
+    } finally {
+      persistLock = false
+      persistTimer = null
+    }
   }, 500)
 }
 
@@ -62,7 +116,9 @@ export function createRoom(topic?: string): RoomSession {
     lastStampAt: {},
     board: { strokes: [], shapes: [], texts: [], notes: [], rev: 0 },
     boardLastClientId: undefined,
-    live: { strokes: {} },
+    live: { strokes: {}, cursors: {} },
+    boardLocked: false,
+    takeaways: [],
   }
   ensure().set(id, room)
   schedulePersist()
@@ -227,7 +283,7 @@ export function setBoard(id: string, board: Partial<BoardState> & { clientId?: s
 // Live strokes (in-progress)
 export function startLiveStroke(id: string, strokeId: string, clientId: string, color: string, size: number) {
   const room = getRoom(id); if (!room) return
-  if (!room.live) room.live = { strokes: {} }
+  if (!room.live) room.live = { strokes: {}, cursors: {} }
   const now = Date.now()
   room.live.strokes[strokeId] = { id: strokeId, clientId, color, size, points: [], updatedAt: now }
 }
@@ -240,6 +296,57 @@ export function appendLivePoints(id: string, strokeId: string, points: { x:numbe
 export function endLiveStroke(id: string, strokeId: string) {
   const room = getRoom(id); if (!room?.live?.strokes[strokeId]) return
   const s = room.live.strokes[strokeId]
-  addStroke(id, { color: s.color, size: s.size, points: s.points, clientId: s.clientId })
+  // smoothen live stroke a bit to improve visual quality
+  function smoothChaikin(points: {x:number;y:number}[], iterations=1){
+    let out = Array.isArray(points) ? points.slice() : []
+    for (let it=0; it<iterations; it++){
+      if (out.length < 3) break
+      const next: {x:number;y:number}[] = [ out[0] ]
+      for (let i=0;i<out.length-1;i++){
+        const p = out[i], q = out[i+1]
+        const Q = { x: 0.75*p.x + 0.25*q.x, y: 0.75*p.y + 0.25*q.y }
+        const R = { x: 0.25*p.x + 0.75*q.x, y: 0.25*p.y + 0.75*q.y }
+        next.push(Q, R)
+      }
+      next.push(out[out.length-1])
+      out = next
+    }
+    return out
+  }
+  const smoothed = smoothChaikin(s.points, 1)
+  addStroke(id, { color: s.color, size: s.size, points: smoothed, clientId: s.clientId })
   delete room.live!.strokes[strokeId]
+}
+
+// Live cursors (presence)
+export function setCursor(id: string, clientId: string, x: number, y: number, color: string) {
+  const room = getRoom(id); if (!room) return
+  if (!room.live) room.live = { strokes: {}, cursors: {} }
+  if (!room.live.cursors) room.live.cursors = {}
+  const now = Date.now()
+  room.live.cursors[clientId] = { x, y, color, updatedAt: now }
+}
+
+// Periodic GC for live state
+function sweepLive(){
+  const now = Date.now()
+  for (const [_, room] of ensure()){
+    const live = room.live
+    if (!live) continue
+    // strokes
+    if (live.strokes){
+      for (const k of Object.keys(live.strokes)){
+        const s = live.strokes[k]
+        if (!s || (now - (s.updatedAt||0)) > LIVE_TTL_MS){ delete live.strokes[k] }
+      }
+    }
+    // cursors
+    if ((live as any).cursors){
+      const curs:any = (live as any).cursors
+      for (const k of Object.keys(curs)){
+        const c = curs[k]
+        if (!c || (now - (c.updatedAt||0)) > LIVE_TTL_MS){ delete curs[k] }
+      }
+    }
+  }
 }

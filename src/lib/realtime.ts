@@ -5,24 +5,88 @@ type Options = { transport?: 'poll'|'sse' }
 
 export function subscribeRoomState(roomId: string, onState: (s: any) => void, opts: Options = {}): Unsubscribe {
   const transport = opts.transport || 'sse'
+  // Try SSE first, then fall back to poll with backoff
   if (transport === 'sse' && typeof window !== 'undefined' && 'EventSource' in window) {
     try {
       const es = new EventSource(`/api/rooms/${roomId}/sse`)
-      const onMsg = (ev: MessageEvent) => {
-        try { const js = JSON.parse(ev.data); onState(js) } catch {}
+      let curr: any = null
+      const apply = (mut: (s:any)=>void) => { try { if (!curr) return; mut(curr); onState(curr) } catch {} }
+      const onSnap = (ev: MessageEvent) => { try { curr = JSON.parse(ev.data); onState(curr) } catch {} }
+      const onBoard = (ev: MessageEvent) => { apply((s)=>{ try { const js = JSON.parse(ev.data); s.board = js.board } catch {} }) }
+      const onBoardPatch = (ev: MessageEvent) => {
+        apply((s) => {
+          try {
+            const js = JSON.parse(ev.data)
+            s.board = s.board || {}
+            const applyArr = (key: 'strokes'|'shapes'|'texts'|'notes', patch: any) => {
+              const arr: any[] = (s.board as any)[key] || []
+              if (Array.isArray(patch)) { (s.board as any)[key] = patch; return }
+              if (typeof patch === 'object' && patch) {
+                if (typeof patch.truncateTo === 'number') {
+                  arr.length = Math.max(0, Math.min(arr.length, patch.truncateTo))
+                }
+                if (Array.isArray(patch.replace)) {
+                  for (const r of patch.replace) { if (r && typeof r.i === 'number') arr[r.i] = r.item }
+                }
+                if (Array.isArray(patch.append)) {
+                  for (const a of patch.append) arr.push(a)
+                }
+                (s.board as any)[key] = arr
+              }
+            }
+            if ('strokes' in js) applyArr('strokes', js.strokes)
+            if ('shapes' in js) applyArr('shapes', js.shapes)
+            if ('texts' in js) applyArr('texts', js.texts)
+            if ('notes' in js) applyArr('notes', js.notes)
+            if ('rev' in js) (s.board as any).rev = js.rev
+          } catch {}
+        })
       }
-      const onError = () => { es.close(); /* fallback to poll */ subscribeRoomState(roomId, onState, { transport: 'poll' }) }
-      es.addEventListener('message', onMsg)
+      const onLiveStart = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); s.live = s.live || { strokes: {}, cursors: {} }; s.live.strokes[js.id] = { id: js.id, clientId: js.clientId, color: js.color, size: js.size, points: [], updatedAt: Date.now() } }) }
+      const onLivePts = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); const st = s.live?.strokes?.[js.strokeId]; if (!st) return; if (typeof js.pts_b64 === 'string' && js.pts_b64.length>0) { try { const bin = atob(js.pts_b64); const len = bin.length; const bytes = new Uint8Array(len); for (let i=0;i<len;i++){ bytes[i] = bin.charCodeAt(i) } const f32 = new Float32Array(bytes.buffer); for (let i=0;i+1<f32.length;i+=2){ const x=f32[i], y=f32[i+1]; if (Number.isFinite(x)&&Number.isFinite(y)) st.points.push({ x, y }) } } catch {} } else if (Array.isArray(js.pts)) { const a:number[] = js.pts; for(let i=0;i+1<a.length;i+=2){ const x=a[i], y=a[i+1]; if(Number.isFinite(x)&&Number.isFinite(y)) st.points.push({ x, y }) } } else { const pts = Array.isArray(js.points) ? js.points : []; for(const p of pts){ if(p&&Number.isFinite(p.x)&&Number.isFinite(p.y)) st.points.push({ x:p.x, y:p.y }) } } st.updatedAt = Date.now() }) }
+      const onLiveEnd = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); if (s.live?.strokes) delete s.live.strokes[js.id] }) }
+      const onCursor = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); s.live = s.live || { strokes: {}, cursors: {} }; s.live.cursors = s.live.cursors || {}; s.live.cursors[js.clientId] = { x: js.x, y: js.y, color: js.color, updatedAt: Date.now() } }) }
+      const onMsg = (ev: MessageEvent) => { try { const js = JSON.parse(ev.data); onState(js) } catch {} }
+      let fallbackUnsub: Unsubscribe | null = null
+      const onError = () => {
+        es.close()
+        // Fallback to polling; keep its unsubscribe so we can clean it up if needed
+        if (!fallbackUnsub) fallbackUnsub = subscribeRoomState(roomId, onState, { transport: 'poll' })
+      }
+      es.addEventListener('message', onMsg) // compatibility
+      es.addEventListener('snapshot', onSnap as any)
+      es.addEventListener('board', onBoard as any)
+      es.addEventListener('live_start', onLiveStart as any)
+      es.addEventListener('live_points', onLivePts as any)
+      es.addEventListener('live_end', onLiveEnd as any)
+      es.addEventListener('cursor', onCursor as any)
+      es.addEventListener('board_patch', onBoardPatch as any)
       es.addEventListener('error', onError)
-      return () => { es.removeEventListener('message', onMsg); es.removeEventListener('error', onError); es.close() }
+      return () => {
+        es.removeEventListener('message', onMsg)
+        es.removeEventListener('snapshot', onSnap as any)
+        es.removeEventListener('board', onBoard as any)
+        es.removeEventListener('live_start', onLiveStart as any)
+        es.removeEventListener('live_points', onLivePts as any)
+        es.removeEventListener('live_end', onLiveEnd as any)
+        es.removeEventListener('cursor', onCursor as any)
+        es.removeEventListener('board_patch', onBoardPatch as any)
+        es.removeEventListener('error', onError)
+        try { es.close() } catch {}
+        if (fallbackUnsub) { try { fallbackUnsub() } catch {} }
+      }
     } catch {
-      // fall back to poll
+      // fall through to polling
     }
   }
+
   let active = true
   let timer: any = null
+  let controller: AbortController | null = null
   let delay = 2000
   const maxDelay = 10000
+  const resetDelay = () => { delay = 2000 }
+  const backoff = () => { delay = Math.min(maxDelay, Math.round(delay * (1.6 + Math.random() * 0.2))) }
 
   const schedule = () => {
     if (!active) return
@@ -30,16 +94,20 @@ export function subscribeRoomState(roomId: string, onState: (s: any) => void, op
     timer = setTimeout(loop, delay)
   }
   const loop = async () => {
+    if (!active) return
     try {
-      const r = await fetch(`/api/rooms/${roomId}/state`, { cache: 'no-store' })
+      controller = new AbortController()
+      const r = await fetch(`/api/rooms/${roomId}/state`, { cache: 'no-store', signal: controller.signal })
       if (r.ok) {
         const js = await r.json(); onState(js)
-        delay = 2000
+        resetDelay()
       } else {
-        delay = Math.min(maxDelay, Math.floor(delay * 1.5))
+        backoff()
       }
     } catch {
-      delay = Math.min(maxDelay, Math.floor(delay * 1.5))
+      backoff()
+    } finally {
+      controller = null
     }
     schedule()
   }
@@ -47,10 +115,12 @@ export function subscribeRoomState(roomId: string, onState: (s: any) => void, op
   const onVis = () => {
     if (document.visibilityState === 'visible') {
       clearTimeout(timer)
-      delay = Math.min(delay, 2000)
+      if (controller) { try { controller.abort() } catch {} }
+      resetDelay()
       loop()
     } else {
       clearTimeout(timer)
+      if (controller) { try { controller.abort() } catch {} }
     }
   }
 
@@ -60,6 +130,7 @@ export function subscribeRoomState(roomId: string, onState: (s: any) => void, op
   return () => {
     active = false
     clearTimeout(timer)
+    if (controller) { try { controller.abort() } catch {} }
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVis)
   }
 }

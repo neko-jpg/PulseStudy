@@ -76,6 +76,9 @@ export type RoomSession = {
   board?: BoardState
   boardLastClientId?: string
   live?: LiveBoard
+  // Ops
+  boardLocked?: boolean
+  takeaways?: { ts: number; text: string; authorId?: string }[]
 }
 
 // Whiteboard types
@@ -105,4 +108,5 @@ export type LiveStroke = {
 
 export type LiveBoard = {
   strokes: Record<string, LiveStroke>
+  cursors?: Record<string, { x:number; y:number; color:string; updatedAt:number }>
 }
