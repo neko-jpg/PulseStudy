@@ -77,9 +77,13 @@ onmessage = async (ev: MessageEvent<MsgIn>) => {
     const poseScore = 1 - posePenalty
 
     // 3. Expression Score from Blendshapes
-    const blendshapes = faceBlendshapes![0].categories
-    const browDown = (blendshapes.find(c => c.categoryName === 'browDownLeft')?.score ?? 0 + blendshapes.find(c => c.categoryName === 'browDownRight')?.score ?? 0) / 2
-    const mouthPress = blendshapes.find(c => c.categoryName === 'mouthPressLeft')?.score ?? 0 + blendshapes.find(c => c.categoryName === 'mouthPressRight')?.score ?? 0
+    const blendshapes = faceBlendshapes![0].categories as Array<{ categoryName: string; score: number }>
+    const browDownLeft = blendshapes.find(c => c.categoryName === 'browDownLeft')?.score ?? 0
+    const browDownRight = blendshapes.find(c => c.categoryName === 'browDownRight')?.score ?? 0
+    const browDown = (browDownLeft + browDownRight) / 2
+    const mouthPressLeft = blendshapes.find(c => c.categoryName === 'mouthPressLeft')?.score ?? 0
+    const mouthPressRight = blendshapes.find(c => c.categoryName === 'mouthPressRight')?.score ?? 0
+    const mouthPress = mouthPressLeft + mouthPressRight
 
     // Confusion/Concentration is often tied to browDown.
     // We'll treat it as a positive indicator for focus, up to a point.
