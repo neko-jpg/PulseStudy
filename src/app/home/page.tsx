@@ -14,6 +14,7 @@ import { PulseWidget } from '@/components/pulse/PulseWidget'
 import { ChallengeStrip } from '@/components/home/ChallengeStrip'
 import { track } from '@/lib/analytics'
 import { useHomeStore, type ModuleSummary } from '@/store/homeStore'
+import { usePulseStore } from '@/store/pulse'
 import './home.css'
 import { PulseNudge } from '@/components/pulse/PulseNudge'
 
@@ -35,6 +36,8 @@ export default function HomePage() {
   const setStreakDays = useHomeStore((s) => s.setStreakDays)
   const setCurrentModuleId = useHomeStore((s) => s.setCurrentModuleId)
   const unread = useHomeStore((s) => s.unread)
+  const pulseScore = usePulseStore((s) => s.score)
+  const pulseRunning = usePulseStore((s) => s.running)
 
   const today = useMemo(() => new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }), [])
 
@@ -161,7 +164,7 @@ export default function HomePage() {
         </section>
 
         <section className="pulse-section" aria-label="集中度">
-          <PulseCard value={data?.pulse ?? 0} />
+          <PulseCard value={pulseRunning ? Math.round(pulseScore * 100) : (data?.pulse ?? 0)} />
         </section>
 
         <section className="challenge-section" aria-label="チャレンジ">
