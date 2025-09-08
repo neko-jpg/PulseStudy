@@ -11,8 +11,6 @@ export function PulseWidget(){
   const running = usePulseStore(s=>s.running)
   const start = usePulseStore(s=>s.start)
   const stop = usePulseStore(s=>s.stop)
-  const backend = usePulseStore(s=>s.backend)
-  const setBackend = usePulseStore(s=>s.setBackend)
 
   useEffect(()=>{ return () => { stop() } },[stop])
 
@@ -25,15 +23,8 @@ export function PulseWidget(){
         <div className="absolute inset-1 rounded-full bg-white flex items-center justify-center text-xs font-semibold">{pct}</div>
       </div>
       <div className="text-xs text-muted-foreground">
-        <div>明るさ: {quality.light} / FPS: {quality.fps}</div>
-        <div>寄与 gaze: {(attn.gaze*100|0)}%</div>
-        <div className="mt-1 flex items-center gap-1">
-          <label className="opacity-70">Backend:</label>
-          <select className="border rounded px-1 py-0.5" value={backend} onChange={(e)=>setBackend(e.target.value as any)}>
-            <option value="heuristic">Heuristic</option>
-            <option value="face-lite">FaceLite</option>
-          </select>
-        </div>
+        <div>FPS: {quality.fps}</div>
+        <div>G:{(attn.gaze*100|0)}% P:{(attn.pose*100|0)}% E:{(attn.expression*100|0)}%</div>
         <div className="mt-1">
           {!consent.camera ? (
             <button className="underline" onClick={start}>カメラ解析を開始</button>
