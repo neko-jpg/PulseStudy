@@ -55,20 +55,6 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: '/home(.*)',
-        headers: [
-          ...securityHeaders.filter(h=>h.key!=='Permissions-Policy'),
-          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
-        ],
-      },
-      {
-        source: '/profile(.*)',
-        headers: [
-          ...securityHeaders.filter(h=>h.key!=='Permissions-Policy'),
-          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
-        ],
-      },
-      {
         source: '/(.*)',
         headers: securityHeaders,
       },
