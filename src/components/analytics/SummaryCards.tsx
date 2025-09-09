@@ -31,9 +31,9 @@ export function SummaryCards({
           <Button size="sm" variant="ghost" className="px-0 mt-1">詳細を見る</Button>
         </CardContent>
       </Card>
-      <Card role="button" onClick={() => onOpen('flow')} aria-label="没入度の詳細">
+      <Card role="button" onClick={() => onOpen('flow')} aria-label="週間平均集中度の詳細">
         <CardContent className="p-4">
-          <div className="text-xs text-muted-foreground">没入度</div>
+          <div className="text-xs text-muted-foreground">週間平均集中度</div>
           <div className="text-2xl font-bold flex items-center gap-2"><Activity className="h-5 w-5" /> {flow}%</div>
           <Button size="sm" variant="ghost" className="px-0 mt-1">詳細を見る</Button>
         </CardContent>
