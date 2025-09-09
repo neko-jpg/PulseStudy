@@ -48,6 +48,11 @@
     --correct: hsl(var(--chart-2));
     --incorrect: hsl(var(--destructive));
     --warning: hsl(var(--accent));
+
+    --shadow-sm: 0 1px 2px 0 hsl(var(--foreground) / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(var(--foreground) / 0.07), 0 2px 4px -2px hsl(var(--foreground) / 0.07);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--foreground) / 0.1), 0 4px 6px -4px hsl(var(--foreground) / 0.1);
+    --card-bg: hsl(var(--card));
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -95,6 +100,22 @@
 }
 
 @layer components {
+  .ps-card {
+    @apply rounded-lg bg-card p-4 shadow-[var(--shadow-sm)];
+  }
+
+  .ps-h1 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  .ps-h2 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+
+  .ps-badge {
+    @apply inline-flex items-center rounded-full bg-primary px-2 py-1 text-xs text-primary-foreground;
+  }
+
   .focus-nudge-animation {
     animation: focus-breathing 4s ease-in-out infinite;
   }

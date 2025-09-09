@@ -14,6 +14,7 @@ import { track } from '@/lib/analytics'
 import { useHomeStore, type ModuleSummary, type CameraPermission } from '@/store/homeStore'
 import { usePulseEngine } from '@/hooks/usePulseEngine'
 import { PulseEngineOutput } from '@/lib/pulse-engine'
+import { Skeleton } from '@/components/common/Skeleton'
 import './home.css'
 
 type HomeApi = {
@@ -189,10 +190,9 @@ export default function HomePage() {
           />
 
           {loading && (
-            <div className="grid grid-cols-1 gap-3 mt-3">
-              <TaskCard loading />
-              <TaskCard loading />
-              <TaskCard loading />
+            <div className="mt-3 space-y-3" aria-hidden="true">
+              <Skeleton className="h-24 w-full rounded-lg" />
+              <Skeleton className="h-24 w-full rounded-lg" />
             </div>
           )}
 
