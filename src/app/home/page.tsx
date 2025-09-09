@@ -12,7 +12,7 @@ import { PulseCard } from '@/components/home/PulseCard'
 import { ChallengeStrip } from '@/components/home/ChallengeStrip'
 import { track } from '@/lib/analytics'
 import { useHomeStore, type ModuleSummary } from '@/store/homeStore'
-// import { usePulseStore } from '@/store/pulse' // Build error: file does not exist
+// import { usePulseStore } from '@/store/pulse' // ← この行を削除
 import './home.css'
 
 type HomeApi = {
@@ -33,8 +33,8 @@ export default function HomePage() {
   const setStreakDays = useHomeStore((s) => s.setStreakDays)
   const setCurrentModuleId = useHomeStore((s) => s.setCurrentModuleId)
   const unread = useHomeStore((s) => s.unread)
-  // const pulseScore = usePulseStore((s) => s.score)
-  // const pulseRunning = usePulseStore((s) => s.running)
+  // const pulseScore = usePulseStore((s) => s.score) // ← この行を削除
+  // const pulseRunning = usePulseStore((s) => s.running) // ← この行を削除
 
   const today = useMemo(() => new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }), [])
 

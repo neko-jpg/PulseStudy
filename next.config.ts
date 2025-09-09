@@ -1,32 +1,26 @@
 const securityHeaders = [
   {
     key: 'Content-Security-Policy',
-    value: (() => {
-      const base = [
-        "default-src 'self'",
-        "base-uri 'self'",
-        "frame-ancestors 'self'",
-        "img-src 'self' data: blob: https:",
-        "font-src 'self' data:",
-        "connect-src 'self' data: blob: https: http: ws: wss:",
-        "form-action 'self'",
-      ]
-      if (process.env.NODE_ENV === 'production') {
-        base.push("style-src 'self'")
-        base.push("script-src 'self' blob:")
-      } else {
-        base.push("style-src 'self' 'unsafe-inline'")
-        base.push("script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:")
-      }
-      return base.join('; ')
-    })(),
+    value: [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "frame-ancestors 'self'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:", // next/font を使うのでこれでOK
+      "connect-src 'self' data: blob: https: http: ws: wss:",
+      "form-action 'self'",
+      // Next.jsの内部動作に必要なインラインのscript/styleを許可
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' blob:",
+    ].join('; ')
   },
   { key: 'Referrer-Policy', value: 'no-referrer' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  // ★★★ 最重要：カメラの使用を許可する ★★★
+  { key: 'Permissions-Policy', value: "camera=(self), microphone=(), geolocation=()" },
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-]
+];
 
 const nextConfig = {
   /* config options here */
