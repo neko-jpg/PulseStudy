@@ -9,6 +9,8 @@ export type ModuleSummary = {
   questions: number
 }
 
+export type CameraPermission = 'idle' | 'pending' | 'granted' | 'denied'
+
 type HomeState = {
   currentModuleId: string | null
   setCurrentModuleId: (id: string) => void
@@ -18,6 +20,10 @@ type HomeState = {
   setStreakDays: (n: number) => void
   pulse: number
   setPulse: (n: number) => void
+  isPulseEngineEnabled: boolean
+  setPulseEngineEnabled: (enabled: boolean) => void
+  cameraPermission: CameraPermission
+  setCameraPermission: (status: CameraPermission) => void
 }
 
 export const useHomeStore = create<HomeState>((set) => ({
@@ -29,5 +35,9 @@ export const useHomeStore = create<HomeState>((set) => ({
   setStreakDays: (n) => set({ streakDays: n }),
   pulse: 0,
   setPulse: (n) => set({ pulse: n }),
+  isPulseEngineEnabled: false,
+  setPulseEngineEnabled: (enabled) => set({ isPulseEngineEnabled: enabled }),
+  cameraPermission: 'idle',
+  setCameraPermission: (status) => set({ cameraPermission: status }),
 }))
 
