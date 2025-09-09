@@ -1,17 +1,19 @@
 ﻿"use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Bell, Flame, Users } from 'lucide-react'
+import { Bell, Flame, Users, Video, VideoOff } from 'lucide-react'
 import { QuickStartCard } from '@/components/home/QuickStartCard'
 import { TaskCard } from '@/components/home/TaskCard'
 import { PulseCard } from '@/components/home/PulseCard'
 import { ChallengeStrip } from '@/components/home/ChallengeStrip'
 import { track } from '@/lib/analytics'
-import { useHomeStore, type ModuleSummary } from '@/store/homeStore'
+import { useHomeStore, type ModuleSummary, type CameraPermission } from '@/store/homeStore'
+import { usePulseEngine } from '@/hooks/usePulseEngine'
+import { PulseEngineOutput } from '@/lib/pulse-engine'
 import './home.css'
 
 type HomeApi = {
@@ -19,19 +21,73 @@ type HomeApi = {
   tasks: ModuleSummary[]
   unread: number
   streakDays: number
-  pulse: number
+  pulse: number // This will be ignored now
+}
+
+function PulseController() {
+  const {
+    isPulseEngineEnabled,
+    setPulseEngineEnabled,
+    cameraPermission,
+    setCameraPermission,
+    setPulse,
+  } = useHomeStore()
+
+  const handleUpdate = useCallback((output: PulseEngineOutput) => {
+    const score = Math.round(output.smoothedScore * 100)
+    setPulse(score)
+  }, [setPulse])
+
+  const handlePermissionChange = useCallback((status: CameraPermission) => {
+    setCameraPermission(status)
+  }, [setCameraPermission])
+
+  usePulseEngine({
+    enabled: isPulseEngineEnabled,
+    onUpdate: handleUpdate,
+    onPermissionChange: handlePermissionChange,
+  })
+
+  const handleToggle = () => {
+    const nextState = !isPulseEngineEnabled
+    setPulseEngineEnabled(nextState)
+    if (nextState) {
+        track({ name: 'pulse_measurement_start' })
+    } else {
+        track({ name: 'pulse_measurement_stop' })
+    }
+  }
+
+  const buttonText = {
+    idle: '集中度を計測',
+    pending: '許可を待っています...',
+    granted: '計測を停止',
+    denied: 'カメラがブロックされています',
+  }[cameraPermission]
+
+  if (cameraPermission === 'granted' && isPulseEngineEnabled) {
+    return (
+         <Button onClick={handleToggle} variant="secondary" className="w-full mt-2">
+            <VideoOff className="mr-2 h-4 w-4" />
+            計測を停止
+        </Button>
+    )
+  }
+
+  return (
+    <Button onClick={handleToggle} disabled={cameraPermission === 'pending' || cameraPermission === 'denied'} className="w-full mt-2">
+        <Video className="mr-2 h-4 w-4" />
+        {buttonText}
+    </Button>
+  )
 }
 
 export default function HomePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [data, setData] = useState<HomeApi | null>(null)
-  const setUnread = useHomeStore((s) => s.setUnread)
-  const setPulse = useHomeStore((s) => s.setPulse)
-  const setStreakDays = useHomeStore((s) => s.setStreakDays)
-  const setCurrentModuleId = useHomeStore((s) => s.setCurrentModuleId)
-  const unread = useHomeStore((s) => s.unread)
+  const [data, setData] = useState<Omit<HomeApi, 'pulse'> | null>(null)
+  const { setUnread, setStreakDays, setCurrentModuleId, unread, pulse } = useHomeStore()
 
   const today = useMemo(() => new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }), [])
 
@@ -48,7 +104,8 @@ export default function HomePage() {
         if (!res.ok) { if (res.status === 401) return router.push('/login'); throw new Error('failed') }
         const json: HomeApi = await res.json()
         if (!active) return
-        setData(json); setUnread(json.unread); setPulse(json.pulse); setStreakDays(json.streakDays)
+        const { pulse, ...rest } = json
+        setData(rest); setUnread(json.unread); setStreakDays(json.streakDays)
         if (json.quickstart?.moduleId) setCurrentModuleId(json.quickstart.moduleId)
       } catch (e: any) { setError(e?.name === 'AbortError' ? 'timeout' : 'network') }
       finally { if (active) setLoading(false) }
@@ -66,7 +123,7 @@ export default function HomePage() {
     window.addEventListener('visibilitychange', onVis)
     window.addEventListener('focus', syncUnread)
     return () => { active = false; clearTimeout(timeout); controller.abort(); clearInterval(pollTimer); window.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', syncUnread) }
-  }, [router, setCurrentModuleId, setPulse, setStreakDays, setUnread])
+  }, [router, setCurrentModuleId, setStreakDays, setUnread])
 
   const tasks = data?.tasks ?? []
   const showEmptyTasks = !loading && tasks.length === 0
@@ -152,7 +209,9 @@ export default function HomePage() {
         </section>
 
         <section className="pulse-section" aria-label="集中度">
-          <PulseCard value={data?.pulse ?? 0} />
+          <PulseCard value={pulse}>
+            <PulseController />
+          </PulseCard>
         </section>
 
         <section className="challenge-section" aria-label="チャレンジ">
