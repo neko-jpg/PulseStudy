@@ -24,11 +24,14 @@ export interface PulseEvent {
   timestamp: number;
 }
 
+export type PulseState = "running" | "paused" | "no-signal" | "warming_up";
+
 export interface PulseEngineOutput {
   rawScore: number;
   smoothedScore: number;
   features: HeuristicFeatures;
   events: PulseEvent[];
+  state: PulseState;
 }
 
 interface TriggerState {
@@ -66,6 +69,7 @@ export class PulseEngine {
         smoothedScore: this.smoothedScore,
         features: this.getEmptyFeatures(),
         events,
+        state: "no-signal",
       };
     }
 
@@ -86,6 +90,7 @@ export class PulseEngine {
       smoothedScore: this.smoothedScore,
       features,
       events,
+      state: "running",
     };
   }
 
