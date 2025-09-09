@@ -7,11 +7,12 @@ const securityHeaders = [
       "frame-ancestors 'self'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:", // next/font を使うのでこれでOK
-      "connect-src 'self' data: blob: https: http: ws: wss:",
+      "connect-src 'self' data: blob: https: http: ws: wss: https://storage.googleapis.com",
       "form-action 'self'",
       // Next.jsの内部動作に必要なインラインのscript/styleを許可
       "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' blob:",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net",
+      "worker-src 'self' blob: https://cdn.jsdelivr.net",
     ].join('; ')
   },
   { key: 'Referrer-Policy', value: 'no-referrer' },
