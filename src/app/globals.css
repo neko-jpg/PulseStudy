@@ -93,3 +93,21 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .focus-nudge-animation {
+    animation: focus-breathing 4s ease-in-out infinite;
+  }
+
+  @keyframes focus-breathing {
+    0% {
+      box-shadow: 0 0 0 0 hsla(var(--primary), 0.4);
+    }
+    50% {
+      box-shadow: 0 0 12px 3px hsla(var(--primary), 0.7);
+    }
+    100% {
+      box-shadow: 0 0 0 0 hsla(var(--primary), 0.4);
+    }
+  }
+}
