@@ -9,6 +9,7 @@ import { ProfileHeader } from '@/components/profile/ProfileHeader'
 import { GoalCard } from '@/components/profile/GoalCard'
 import { NotifPrefsCard } from '@/components/profile/NotifPrefsCard'
 import { PrivacyCard } from '@/components/profile/PrivacyCard'
+import { FocusMeterCard } from '@/components/profile/FocusMeterCard'
 import { DataSection } from '@/components/profile/DataSection'
 import { UpgradeCard } from '@/components/profile/UpgradeCard'
 import './profile.css'
@@ -99,6 +100,7 @@ export default function ProfilePage() {
       {plan === 'plus' ? <BestTimeCard /> : <UpgradeCard onUpgraded={() => setPlan('plus')} />}
       <GoalCard value={data.goals} onSave={saveGoals} saving={saving.goals} />
       <NotifPrefsCard value={data.notifs} onSave={saveNotifs} saving={saving.notifs} quiet={data.quiet} />
+      <FocusMeterCard />
       <PrivacyCard mode={data.privacy.mode} onSave={savePrivacy} saving={saving.privacy} />
       <BadgeShelf />
       <DataSection onExport={doExport} onDelete={doDelete} exporting={saving.export} deleting={saving.delete} />
