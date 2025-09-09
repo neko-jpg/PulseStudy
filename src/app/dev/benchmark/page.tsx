@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { FaceLandmarker } from "@mediapipe/tasks-vision";
+import { createFaceLandmarker as createServiceFaceLandmarker } from "@/lib/focus-meter/mediapipe-service";
 import { PulseEngine, PulseEngineOutput } from "@/lib/pulse-engine";
 import { PulseDebugUI } from "@/components/debug/PulseDebugUI";
 import { InterventionOrchestrator, InterventionAction } from "@/lib/intervention-orchestrator";
@@ -47,34 +48,21 @@ const BenchmarkPage = () => {
   const orchestratorRef = useRef<InterventionOrchestrator | null>(null);
   const gamificationEngineRef = useRef<GamificationEngine | null>(null);
 
-  const createFaceLandmarker = useCallback(async () => {
-    try {
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/wasm"
-      );
-      const landmarker = await FaceLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-          delegate: "GPU",
-        },
-        outputFaceBlendshapes: true,
-        runningMode: "VIDEO",
-        numFaces: 1,
-        outputFacialTransformationMatrixes: true,
-      });
-      setFaceLandmarker(landmarker);
-    } catch (e: any) {
-      setError(`Failed to create FaceLandmarker: ${e.message}`);
-      console.error(e);
-    }
-  }, []);
-
   useEffect(() => {
-    createFaceLandmarker();
+    const init = async () => {
+      try {
+        const landmarker = await createServiceFaceLandmarker();
+        setFaceLandmarker(landmarker);
+      } catch (e: any) {
+        setError(`Failed to create FaceLandmarker: ${e.message}`);
+        console.error(e);
+      }
+    };
+    init();
     pulseEngineRef.current = new PulseEngine();
     orchestratorRef.current = new InterventionOrchestrator();
     gamificationEngineRef.current = new GamificationEngine();
-  }, [createFaceLandmarker]);
+  }, []);
 
   const predictWebcam = useCallback(() => {
     if (!videoRef.current || !faceLandmarker || !pulseEngineRef.current || !orchestratorRef.current || !gamificationEngineRef.current) return;
