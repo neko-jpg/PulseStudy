@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -42,10 +42,13 @@ function PulseController() {
     setCameraPermission(status)
   }, [setCameraPermission])
 
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+
   usePulseEngine({
     enabled: isPulseEngineEnabled,
     onUpdate: handleUpdate,
     onPermissionChange: handlePermissionChange,
+    videoEl: videoRef.current,
   })
 
   const handleToggle = () => {
@@ -65,20 +68,23 @@ function PulseController() {
     denied: 'カメラがブロックされています',
   }[cameraPermission]
 
-  if (cameraPermission === 'granted' && isPulseEngineEnabled) {
-    return (
-         <Button onClick={handleToggle} variant="secondary" className="w-full mt-2">
+  const button = (cameraPermission === 'granted' && isPulseEngineEnabled) ? (
+        <Button onClick={handleToggle} variant="secondary" className="w-full mt-2">
             <VideoOff className="mr-2 h-4 w-4" />
             計測を停止
         </Button>
-    )
-  }
+  ) : (
+        <Button onClick={handleToggle} disabled={cameraPermission === 'pending' || cameraPermission === 'denied'} className="w-full mt-2">
+            <Video className="mr-2 h-4 w-4" />
+            {buttonText}
+        </Button>
+  )
 
   return (
-    <Button onClick={handleToggle} disabled={cameraPermission === 'pending' || cameraPermission === 'denied'} className="w-full mt-2">
-        <Video className="mr-2 h-4 w-4" />
-        {buttonText}
-    </Button>
+    <>
+      <video ref={videoRef} muted playsInline autoPlay style={{ display: 'none' }} />
+      {button}
+    </>
   )
 }
 

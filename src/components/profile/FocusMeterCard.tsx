@@ -11,6 +11,13 @@ export function FocusMeterCard() {
 
   const isRunning = output.state !== 'paused';
 
+  const stateMessages: Record<string, string> = {
+    active: '計測中です',
+    paused: '別タブにいるため一時停止しています',
+    'no-signal': '顔が検出できません',
+    warming_up: '計測を準備しています…',
+  };
+
   const getStatusVariant = (state: string): VariantProps<typeof badgeVariants>['variant'] => {
     switch(state) {
       case 'active': return 'default';
@@ -40,10 +47,13 @@ export function FocusMeterCard() {
             <Button onClick={stop} disabled={!isRunning} variant="outline">停止</Button>
           </div>
         </div>
-        {isRunning && output.state !== 'warming_up' && (
-            <div className="mt-4">
-                <p className="text-sm text-muted-foreground">現在の集中度: {Math.round(output.value * 100)}%</p>
-            </div>
+        <div className="mt-2 text-sm text-muted-foreground" role="status">
+          {stateMessages[output.state] || ''}
+        </div>
+        {isRunning && output.state === 'active' && (
+          <div className="mt-4">
+            <p className="text-sm text-muted-foreground">現在の集中度: {Math.round(output.value * 100)}%</p>
+          </div>
         )}
       </CardContent>
     </Card>
