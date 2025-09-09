@@ -1,4 +1,4 @@
-// next.config.ts
+import type { NextConfig } from 'next'
 
 const securityHeaders = [
   {
@@ -9,8 +9,7 @@ const securityHeaders = [
       "frame-ancestors 'self'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      // AIモデル(storage.googleapis.com)と関連スクリプト(cdn.jsdelivr.net)の読み込みを許可
-      "connect-src 'self' data: blob: https: http: ws: wss: https://storage.googleapis.com",
+      "connect-src 'self' data: blob: https: http: ws: wss: https://storage.googleapis.com", 
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
       "worker-src 'self' blob: https://cdn.jsdelivr.net",
       "form-action 'self'",
@@ -20,13 +19,11 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'no-referrer' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-  // カメラの利用を許可
   { key: 'Permissions-Policy', value: "camera=(self), microphone=(), geolocation=()" },
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   reactStrictMode: true,
   headers: async () => [{ source: '/:path*', headers: securityHeaders }],
   webpack: (config: import('webpack').Configuration, { isServer }: { isServer: boolean }) => {
