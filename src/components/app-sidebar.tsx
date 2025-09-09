@@ -59,16 +59,22 @@ export function AppSidebar() {
       </div>
       <nav className="flex-1 space-y-2 p-2">
         {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              passHref
+          <Link
+            key={item.href}
+            href={item.href}
+            passHref
             onClick={() => setMobileOpen(false)}
-              title={isCollapsed ? item.label : undefined}
-            >
+            title={isCollapsed ? item.label : undefined}
+            aria-current={pathname === item.href ? 'page' : undefined}
+          >
             <Button
               variant={pathname === item.href ? 'secondary' : 'ghost'}
-              className={cn('w-full justify-start', isCollapsed && 'justify-center')}
+              className={cn(
+                'w-full justify-start relative',
+                isCollapsed && 'justify-center',
+                pathname === item.href &&
+                  'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-primary'
+              )}
             >
               <item.icon className={cn('h-5 w-5', !isCollapsed && 'mr-2')} />
               <span className={cn(isCollapsed && 'hidden')}>{item.label}</span>
