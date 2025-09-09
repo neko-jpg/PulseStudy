@@ -10,9 +10,14 @@ type UsePulseEngineProps = {
   enabled: boolean;
   onUpdate: (output: PulseEngineOutput) => void;
   onPermissionChange: (status: CameraPermission) => void;
+  /**
+   * Optional video element to attach the camera stream to. If not provided,
+   * the hook will create an off-screen video element as before.
+   */
+  videoEl?: HTMLVideoElement | null;
 };
 
-export function usePulseEngine({ enabled, onUpdate, onPermissionChange }: UsePulseEngineProps) {
+export function usePulseEngine({ enabled, onUpdate, onPermissionChange, videoEl }: UsePulseEngineProps) {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker | null>(null);
   const [isWarmingUp, setIsWarmingUp] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -34,7 +39,11 @@ export function usePulseEngine({ enabled, onUpdate, onPermissionChange }: UsePul
         let ignoredCount = 0;
         console.error = (...args: any[]) => {
           const message = typeof args[0] === 'string' ? args[0] : '';
-          if (message.includes('Created TensorFlow Lite XNNPACK delegate for CPU')) {
+          const stack = new Error().stack || '';
+          const isMpInfo =
+            message.includes('Created TensorFlow Lite XNNPACK delegate for CPU') &&
+            stack.includes('vision_wasm_internal');
+          if (isMpInfo) {
             ignoredCount++;
             console.debug(`[Dev-Only] Suppressed MediaPipe Info Log #${ignoredCount}:`, ...args);
             return;
@@ -127,10 +136,17 @@ export function usePulseEngine({ enabled, onUpdate, onPermissionChange }: UsePul
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
         streamRef.current = stream;
-        const video = document.createElement("video");
+
+        let video: HTMLVideoElement;
+        if (videoEl) {
+          video = videoEl;
+        } else {
+          video = document.createElement("video");
+        }
         video.srcObject = stream;
         video.playsInline = true;
         video.muted = true;
+        video.autoplay = true;
         await video.play();
         videoRef.current = video;
         onPermissionChange('granted');
