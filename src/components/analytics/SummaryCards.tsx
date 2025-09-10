@@ -1,10 +1,9 @@
 "use client";
 
 export function SummaryCards({
-  // TODO: These props should be used when connected to a real data source.
-  // mins,
-  // acc,
-  // flow,
+  mins,
+  acc,
+  flow,
   onOpen,
 }: {
   mins: number;
@@ -12,12 +11,10 @@ export function SummaryCards({
   flow: number;
   onOpen: (metric: "mins" | "acc" | "flow") => void;
 }) {
-  // TODO: The values are hardcoded to match the user's HTML for UI verification.
-  // This should be replaced with dynamic data from the props.
   const cardsData = [
     {
       title: "学習時間",
-      value: 38,
+      value: mins,
       unit: "分",
       icon: "schedule",
       color: "text-blue-400",
@@ -25,7 +22,7 @@ export function SummaryCards({
     },
     {
       title: "正答率",
-      value: 78,
+      value: Math.round(acc * 100),
       unit: "%",
       icon: "check_circle_outline",
       color: "text-green-400",
@@ -33,7 +30,7 @@ export function SummaryCards({
     },
     {
       title: "平均集中度",
-      value: 50,
+      value: flow,
       unit: "%",
       icon: "psychology",
       color: "text-yellow-400",
