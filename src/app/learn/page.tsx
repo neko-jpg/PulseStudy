@@ -8,7 +8,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Skeleton } from '@/components/ui/skeleton'
 import { CheckCircle2, XCircle, ArrowLeft, Brain, HelpCircle } from 'lucide-react'
 import type { ModuleDoc } from '@/lib/types'
-import { useLearnStore } from '@/store/learn'
+import { useLearnStore } from '@/store/learn';
+import { useLearnSettingsStore } from '@/store/learnSettingsStore';
+import { FocusIndicator } from '@/components/learn/FocusIndicator';
 import { track, trackFlow, trackStepView, trackSubmit } from '@/lib/analytics'
 import Link from 'next/link'
 import { enqueue, flush, setupFlushListeners } from '@/lib/quizQueue'
@@ -29,6 +31,7 @@ export default function LearnPage() {
   const [nextModule, setNextModule] = useState<string | null>(null)
 
   const [hideHint, setHideHint] = useState(false)
+  const { learningMode } = useLearnSettingsStore();
   const {
     moduleId,
     step,
@@ -285,10 +288,13 @@ export default function LearnPage() {
             </div>
           </div>
         </div>
-        <div className="flow-meter" role="group" aria-label="Flow申告">
-          <button className="flex items-center gap-1" onClick={() => onFlow('focused')} aria-label="集中している"><Brain size={16} /> 集中</button>
-          <button className="ml-3 text-xs" onClick={() => onFlow('bored')} aria-label="退屈">退屈</button>
-          <button className="ml-2 text-xs" onClick={() => onFlow('confused')} aria-label="困っている">困った</button>
+        <div className="flex items-center gap-4">
+          {learningMode === 'focus' && <FocusIndicator />}
+          <div className="flow-meter" role="group" aria-label="Flow申告">
+            <button className="flex items-center gap-1" onClick={() => onFlow('focused')} aria-label="集中している"><Brain size={16} /> 集中</button>
+            <button className="ml-3 text-xs" onClick={() => onFlow('bored')} aria-label="退屈">退屈</button>
+            <button className="ml-2 text-xs" onClick={() => onFlow('confused')} aria-label="困っている">困った</button>
+          </div>
         </div>
       </header>
 

@@ -11,6 +11,13 @@ const map: Record<string, any> = {
   'm202': quadBasic,
   'm203': enIrregs,
   'last': quadBasic,
+  // Mocks for new learn-top page
+  'math-quad-1': quadBasic,
+  'eng-infinitive-1': enIrregs,
+  'sci-cells-1': quadBasic,
+  'prog-vars-1': quadBasic,
+  'hist-jpn-1': enIrregs,
+  'eng-tenses-1': enIrregs,
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
