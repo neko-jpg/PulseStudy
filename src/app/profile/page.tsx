@@ -9,12 +9,10 @@ import { ProfileHeader } from '@/components/profile/ProfileHeader'
 import { GoalCard } from '@/components/profile/GoalCard'
 import { NotifPrefsCard } from '@/components/profile/NotifPrefsCard'
 import { PrivacyCard } from '@/components/profile/PrivacyCard'
-import { FocusMeterCard } from '@/components/profile/FocusMeterCard'
 import { DataSection } from '@/components/profile/DataSection'
 import { UpgradeCard } from '@/components/profile/UpgradeCard'
 import './profile.css'
 import { BadgeShelf } from '@/components/profile/BadgeShelf'
-import { BestTimeCard } from '@/components/profile/BestTimeCard'
 
 type Summary = { mins:number; acc:number; streak:number; badges:number }
 type Goals = { dailyMins:number; weeklyMins:number }
@@ -80,10 +78,15 @@ export default function ProfilePage() {
   }
 
   if (loading) return (
-    <div className="p-4 space-y-3">
-      <Skeleton className="h-16 w-full" />
+    <div className="p-8 space-y-8">
+      <Skeleton className="h-20 w-full" />
       <Skeleton className="h-24 w-full" />
-      <Skeleton className="h-24 w-full" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
     </div>
   )
   if (error) return (
@@ -95,15 +98,36 @@ export default function ProfilePage() {
   if (!data) return null
 
   return (
-    <div className="p-4 space-y-3">
-      <ProfileHeader user={data.user} summary={data.summary} />
-      {plan === 'plus' ? <BestTimeCard /> : <UpgradeCard onUpgraded={() => setPlan('plus')} />}
-      <GoalCard value={data.goals} onSave={saveGoals} saving={saving.goals} />
-      <NotifPrefsCard value={data.notifs} onSave={saveNotifs} saving={saving.notifs} quiet={data.quiet} />
-      <FocusMeterCard />
-      <PrivacyCard mode={data.privacy.mode} onSave={savePrivacy} saving={saving.privacy} />
-      <BadgeShelf />
-      <DataSection onExport={doExport} onDelete={doDelete} exporting={saving.export} deleting={saving.delete} />
+    <div className="flex-1 p-8 main-content">
+      <header className="flex justify-end mb-8">
+        <button className="relative">
+          <span className="material-icons text-slate-400">notifications</span>
+          <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500"></span>
+        </button>
+      </header>
+      <div className="max-w-4xl mx-auto">
+        <h2 className="text-3xl font-bold text-white mb-8">プロフィール</h2>
+
+        <div className="mb-8">
+          <ProfileHeader user={data.user} summary={data.summary} />
+        </div>
+
+        {plan !== 'plus' && (
+          <div className="mb-8">
+            <UpgradeCard onUpgraded={() => setPlan('plus')} />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <GoalCard value={data.goals} onSave={saveGoals} saving={saving.goals} />
+            <NotifPrefsCard value={data.notifs} onSave={saveNotifs} saving={saving.notifs} quiet={data.quiet} />
+            <PrivacyCard mode={data.privacy.mode} onSave={savePrivacy} saving={saving.privacy} />
+            <BadgeShelf />
+            <div className="md:col-span-2">
+                <DataSection onExport={doExport} onDelete={doDelete} exporting={saving.export} deleting={saving.delete} />
+            </div>
+        </div>
+      </div>
     </div>
   )
 }

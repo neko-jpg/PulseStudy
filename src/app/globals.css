@@ -55,31 +55,31 @@
     --card-bg: hsl(var(--card));
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --background: 222 47% 11%;
+    --foreground: 215 28% 93%;
+    --card: 215 28% 17%;
+    --card-foreground: 215 28% 93%;
+    --popover: 215 28% 17%;
+    --popover-foreground: 215 28% 93%;
     --primary: 229 100% 78%;
     --primary-foreground: 229 40% 15%;
-    --secondary: 0 0% 14.9%;
+    --secondary: 215 28% 23%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    --muted: 215 28% 23%;
+    --muted-foreground: 215 28% 70%;
     --accent: 32 62% 66%;
     --accent-foreground: 32 40% 15%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
+    --border: 215 28% 28%;
+    --input: 215 28% 23%;
     --ring: 229 100% 78%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
+    --sidebar-background: 215 28% 17%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -96,13 +96,33 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Noto Sans JP', sans-serif;
   }
 }
 
 @layer components {
   .card {
-    background-color: #1F2937;
-    border-radius: 12px;
+    background-color: #1E293B;
+    border-radius: 0.75rem;
+  }
+
+  .toggle-bg:after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    background-color: white;
+    border-radius: 9999px;
+    height: 1.25rem;
+    width: 1.25rem;
+    transition: 0.3s;
+  }
+  input:checked + .toggle-bg:after {
+      transform: translateX(100%);
+      border-color: white;
+  }
+  input:checked + .toggle-bg {
+      background-color: #2563EB;
   }
 
   .ps-card {

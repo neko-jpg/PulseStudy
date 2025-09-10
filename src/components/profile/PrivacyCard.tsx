@@ -1,32 +1,41 @@
 "use client"
 
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Label } from '@/components/ui/label'
+import { Check } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type Mode = 'private' | 'link' | 'public'
 
 export function PrivacyCard({ mode, onSave, saving }: { mode: Mode, onSave: (m: Mode) => void, saving?: boolean }) {
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const form = e.target as HTMLFormElement
-    const m = (form.elements.namedItem('privacy') as RadioNodeList).value as Mode
-    onSave(m)
-  }
+  const options: { id: Mode, label: string }[] = [
+    { id: 'private', label: '非公開' },
+    { id: 'link', label: 'リンク共有' },
+    { id: 'public', label: '公開' },
+  ]
+
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="font-semibold mb-2">プライバシー</div>
-        <form onSubmit={onSubmit} className="grid gap-3">
-          <RadioGroup defaultValue={mode} name="privacy">
-            <div className="flex items-center space-x-2"><RadioGroupItem id="p1" value="private" /><Label htmlFor="p1">非公開</Label></div>
-            <div className="flex items-center space-x-2"><RadioGroupItem id="p2" value="link" /><Label htmlFor="p2">リンク共有</Label></div>
-            <div className="flex items-center space-x-2"><RadioGroupItem id="p3" value="public" /><Label htmlFor="p3">公開</Label></div>
-          </RadioGroup>
-          <div><Button type="submit" disabled={saving} aria-label="プライバシー設定を保存">{saving ? '保存中...' : '保存'}</Button></div>
-        </form>
-      </CardContent>
+    <Card className="p-6">
+      <h3 className="text-lg font-semibold text-white mb-4">プライバシー</h3>
+      <div className="space-y-3">
+        {options.map(option => (
+          <Button
+            key={option.id}
+            variant={mode === option.id ? 'default' : 'secondary'}
+            className={cn(
+              "w-full justify-between p-3 rounded-lg text-left",
+              mode === option.id
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-slate-700/50 text-slate-300 hover:bg-slate-700"
+            )}
+            onClick={() => onSave(option.id)}
+            disabled={saving}
+          >
+            <span>{option.label}</span>
+            {mode === option.id && <Check className="h-4 w-4" />}
+          </Button>
+        ))}
+      </div>
     </Card>
   )
 }
