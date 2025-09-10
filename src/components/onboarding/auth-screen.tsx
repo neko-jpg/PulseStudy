@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,6 +10,8 @@ import { Slider } from "@/components/ui/slider";
 import { GoogleIcon } from "../icons/google-icon";
 import { AppleIcon } from "../icons/apple-icon";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/store/authStore";
+import { Loader2 } from "lucide-react";
 
 const subjects = [
   { id: "math", label: "数学" },
@@ -24,16 +26,35 @@ export default function AuthScreen() {
   const [timeValue, setTimeValue] = useState(60);
   const { toast } = useToast();
   const router = useRouter();
+  const { signInWithGoogle, user, loading, error } = useAuthStore();
+
+  useEffect(() => {
+    if (user) {
+      router.push("/home");
+    }
+  }, [user, router]);
+
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "認証エラー",
+        description: "サインインに失敗しました。もう一度お試しください。",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
   const handleAuthClick = (provider: string) => {
-    if (provider === "Guest") {
+    if (provider === "Google") {
+      signInWithGoogle();
+    } else if (provider === "Guest") {
       router.push("/home");
-      return;
+    } else {
+      toast({
+        title: "認証機能",
+        description: `${provider}での認証は現在実装されていません。`,
+      });
     }
-    toast({
-      title: "認証機能",
-      description: `${provider}での認証は現在実装されていません。`,
-    });
   };
 
   const formatTime = (minutes: number) => {
@@ -52,6 +73,7 @@ export default function AuthScreen() {
       </div>
 
       <div className="flex-1 space-y-6">
+        {/* The form elements are kept as is for now */}
         <div className="space-y-2">
           <Label htmlFor="time-slider">目標の学習時間（1日）</Label>
           <Slider
@@ -92,18 +114,20 @@ export default function AuthScreen() {
         <Button
           className="w-full bg-[#4285F4] text-white hover:bg-[#4285F4]/90"
           onClick={() => handleAuthClick("Google")}
+          disabled={loading}
         >
-          <GoogleIcon className="mr-2 size-5" />
+          {loading ? <Loader2 className="mr-2 size-5 animate-spin" /> : <GoogleIcon className="mr-2 size-5" />}
           Googleアカウントで続行
         </Button>
         <Button
           className="w-full bg-black text-white hover:bg-black/90"
           onClick={() => handleAuthClick("Apple")}
+          disabled={loading}
         >
           <AppleIcon className="mr-2 size-5" />
           Appleで続行
         </Button>
-        <Button variant="ghost" onClick={() => handleAuthClick("Guest")}>
+        <Button variant="ghost" onClick={() => handleAuthClick("Guest")} disabled={loading}>
           ゲストとして試す
         </Button>
         <p className="px-4 text-center text-xs text-muted-foreground">

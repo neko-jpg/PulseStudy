@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { CheckCircle2, XCircle, HelpCircle, Lightbulb, Bot } from 'lucide-react'
 import type { ModuleDoc } from '@/lib/types'
 import { useLearnStore } from '@/store/learn'
+import { useSessionStore } from '@/store/sessionStore'
 import { track, trackStepView, trackSubmit } from '@/lib/analytics'
 import { enqueue, flush, setupFlushListeners } from '@/lib/quizQueue'
 import { useToast } from '@/hooks/use-toast'
@@ -41,6 +42,8 @@ export default function LearnPage() {
     setElapsedTime,
   } = useLearnStore()
 
+  const { startSession, finalizeSession, status: sessionStatus } = useSessionStore();
+
   useEffect(() => {
     let active = true
     const controller = new AbortController()
@@ -63,6 +66,7 @@ export default function LearnPage() {
         if (!active) return
         setDoc(json)
         init(json.id, 'quiz') // Start directly with the quiz
+        startSession(json.id); // Start focus tracking session
       } catch (e: any) {
         setError(e?.name === 'AbortError' ? 'timeout' : 'network')
       } finally {
@@ -70,12 +74,17 @@ export default function LearnPage() {
       }
     }
     load()
+
+    // Finalize session on component unmount (e.g., user navigates away)
     return () => {
       active = false
       clearTimeout(timeout)
       controller.abort()
+      if (sessionStatus === 'in_progress') {
+        finalizeSession('aborted');
+      }
     }
-  }, [moduleParam, router, init])
+  }, [moduleParam, router, init, startSession, finalizeSession, sessionStatus])
 
   useEffect(() => {
     flush()
@@ -101,6 +110,8 @@ export default function LearnPage() {
         const elapsedTime = Date.now() - startTime
         setElapsedTime(elapsedTime)
       }
+      // Finalize session successfully
+      finalizeSession('completed');
       router.push(`/learn/${moduleId}/results`)
       return
     }
