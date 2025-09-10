@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    // Users can only read and write their own profile data.
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Users can create and read their own event logs.
+    // Events are append-only and cannot be modified or deleted.
+    match /events/{uid}/items/{id} {
+      allow create: if isOwner(uid);
+      allow read: if isOwner(uid);
+      allow update, delete: if false;
+    }
+
+    // Users can read and write their own session data.
+    match /sessions/{uid}/items/{id} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Collaboration rooms are public to read for the demo,
+    // but only signed-in users can write.
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Subcollections under rooms, like strokes, follow the same write rule.
+    match /rooms/{roomId}/{subcollection}/{docId} {
+        allow write: if isSignedIn();
+    }
+
+    // Public configuration is read-only for everyone.
+    match /configs/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
