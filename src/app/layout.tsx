@@ -19,7 +19,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           name="description"
           content="スナック学習とAIコーチで、『続かない』を『楽しい』に変えよう"
         />
-        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       </head>
       <body className={cn('antialiased')}>
         <a

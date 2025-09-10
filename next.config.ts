@@ -13,7 +13,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net",
       "worker-src 'self' blob: https://cdn.jsdelivr.net",
       "form-action 'self'",
-      "style-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     ].join('; ')
   },
   { key: 'Referrer-Policy', value: 'no-referrer' },
