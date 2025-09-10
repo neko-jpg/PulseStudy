@@ -32,7 +32,7 @@ export function AiRecommendationCard({ recommendation }: AiRecommendationCardPro
         <Clock className="h-4 w-4 mr-1" />
         <span>{durationMinutes}分</span>
       </div>
-      <Link href={`/learn?module=${moduleId}`} passHref>
+      <Link href={`/learn/${moduleId}/summary`} passHref>
         <button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg mt-4">
           開始
         </button>
