@@ -40,35 +40,43 @@ export default function AnalyticsPage() {
     const q = query(
       collection(db, `sessions/${user.uid}/items`),
       where('status', '==', 'completed'),
-      where('startedAt', '>=', sevenDaysAgo)
+      where('startedAt', '>=', sevenDaysAgo),
+      where('durationSec', '>=', 60) // Filter out short sessions
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      let totalSumFocus = 0;
-      let totalCountFocus = 0;
-      let totalDurationSec = 0;
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        let totalSumFocus = 0;
+        let totalCountFocus = 0;
+        let totalDurationSec = 0;
 
-      querySnapshot.forEach((doc) => {
-        const data = doc.data() as SessionDoc;
-        totalSumFocus += data.sumFocus || 0;
-        totalCountFocus += data.countFocus || 0;
-        totalDurationSec += data.durationSec || 0;
-      });
+        querySnapshot.forEach((doc) => {
+          const data = doc.data() as SessionDoc;
+          totalSumFocus += data.sumFocus || 0;
+          totalCountFocus += data.countFocus || 0;
+          totalDurationSec += data.durationSec || 0;
+        });
 
-      const averageFocus = totalCountFocus > 0 ? (totalSumFocus / totalCountFocus) : 0;
-      const totalStudyMinutes = Math.round(totalDurationSec / 60);
+        const averageFocus = totalCountFocus > 0 ? totalSumFocus / totalCountFocus : 0;
+        const totalStudyMinutes = Math.round(totalDurationSec / 60);
 
-      setStats({
-        totalStudyMinutes,
-        averageFocus,
-      });
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching analytics data:", error);
-      setIsLoading(false);
-    });
+        setStats({
+          totalStudyMinutes,
+          averageFocus,
+        });
+        setIsLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching analytics data:", error);
+        setIsLoading(false);
+      }
+    );
 
-    return () => unsubscribe();
+    // Return a cleanup function to unsubscribe from the listener when the component unmounts.
+    return () => {
+      unsubscribe();
+    };
   }, [user]);
 
   return (
