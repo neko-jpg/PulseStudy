@@ -399,6 +399,17 @@
     font-size: 14px;
 }
 
+.heatmap-cell {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.heatmap-cell-0 { background-color: #2D3748; }
+.heatmap-cell-1 { background-color: #3b82f6; }
+.heatmap-cell-2 { background-color: #2563eb; }
+.heatmap-cell-3 { background-color: #1d4ed8; }
+
 
 
 

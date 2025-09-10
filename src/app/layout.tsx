@@ -1,26 +1,27 @@
 import './globals.css'
 import { cn } from '@/lib/utils'
 import ClientShell from '@/components/ClientShell'
-import { Inter, Space_Grotesk } from 'next/font/google'
+import { Noto_Sans_JP } from 'next/font/google'
 
-const inter = Inter({ subsets: ['latin'], display: 'swap' })
-const spaceGrotesk = Space_Grotesk({
+const noto = Noto_Sans_JP({
+  weight: ['400', '700'],
   subsets: ['latin'],
-  weight: ['500', '700'],
   display: 'swap',
+  variable: '--font-noto-sans-jp'
 })
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja">
+    <html lang="ja" className={noto.variable}>
       <head>
         <title>PulseStudy - 学びの、その先へ</title>
         <meta
           name="description"
           content="スナック学習とAIコーチで、『続かない』を『楽しい』に変えよう"
         />
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       </head>
-      <body className={cn(inter.className, 'antialiased')}>
+      <body className={cn(noto.className, 'antialiased')}>
         <a
           href="#content"
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50"
