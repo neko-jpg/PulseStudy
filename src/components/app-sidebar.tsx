@@ -30,7 +30,7 @@ export function AppSidebar() {
   const navItems = useMemo(() => {
     const base = [
       { href: '/home', icon: Home, label: 'ホーム' },
-      { href: '/learn-top', icon: BookOpen, label: '学習' },
+      { href: '/learning', icon: BookOpen, label: '学習' },
       { href: '/challenge', icon: Target, label: 'チャレンジ' },
       { href: '/collab', icon: Users, label: 'コラボ' },
       { href: '/analytics', icon: BarChart, label: '分析' },
