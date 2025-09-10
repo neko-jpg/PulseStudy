@@ -20,7 +20,7 @@ const MOCK_STUDY_FOCUS_CARD_PROPS = {
   durationMinutes: 5,
   questionCount: 4,
   progressPercentage: 25,
-  taskUrl: '/learn/123', // Example URL
+  taskUrl: '/learn/eng-infinitive-1/summary',
 };
 
 const MOCK_QUICK_START_ITEMS: QuickStartItem[] = [
