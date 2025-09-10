@@ -5,7 +5,12 @@ import { summaryData } from '@/lib/summary-data';
 import { Button } from '@/components/ui/button';
 import { HelpCircle, Mic, BookOpen, ChevronLeft } from 'lucide-react';
 
-export default function SummaryPage({ params }: { params: { subjectId: string } }) {
+type PageProps = {
+  params: { subjectId: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
+};
+
+export default async function SummaryPage({ params }: PageProps) {
   const data = summaryData[params.subjectId];
 
   if (!data) {
