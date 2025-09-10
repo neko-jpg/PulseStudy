@@ -1,3 +1,4 @@
+import 'material-icons/iconfont/material-icons.css';
 import './globals.css'
 import { cn } from '@/lib/utils'
 import ClientShell from '@/components/ClientShell'
@@ -12,14 +13,13 @@ const noto = Noto_Sans_JP({
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja" className={noto.variable}>
+    <html lang="ja" className={`${noto.variable} dark`}>
       <head>
         <title>PulseStudy - 学びの、その先へ</title>
         <meta
           name="description"
           content="スナック学習とAIコーチで、『続かない』を『楽しい』に変えよう"
         />
-        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       </head>
       <body className={cn(noto.className, 'antialiased')}>
         <a
