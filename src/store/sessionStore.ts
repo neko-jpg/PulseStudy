@@ -8,6 +8,7 @@ type SessionStatus = 'idle' | 'in_progress' | 'paused' | 'completed' | 'aborted'
 
 interface SessionState {
   sessionId: string | null;
+  moduleId: string | null;
   status: SessionStatus;
   startedAt: number | null;
   sumFocus: number;
@@ -20,6 +21,7 @@ interface SessionState {
 
 const useSessionStore = create<SessionState>((set, get) => ({
   sessionId: null,
+  moduleId: null,
   status: 'idle',
   startedAt: null,
   sumFocus: 0,
@@ -35,16 +37,17 @@ const useSessionStore = create<SessionState>((set, get) => ({
     const newSessionId = crypto.randomUUID();
     set({
       sessionId: newSessionId,
+      moduleId: moduleId || null,
       status: 'in_progress',
       startedAt: Date.now(),
       sumFocus: 0,
       countFocus: 0,
     });
-    console.log(`Session started: ${newSessionId}`);
+    console.log(`Session started: ${newSessionId} for module ${moduleId}`);
   },
 
   finalizeSession: async (finalStatus: 'completed' | 'aborted' = 'completed') => {
-    const { status, sessionId, startedAt, sumFocus, countFocus } = get();
+    const { status, sessionId, startedAt, sumFocus, countFocus, moduleId } = get();
     if (status !== 'in_progress') {
       return; // No active session to finalize
     }
@@ -52,7 +55,7 @@ const useSessionStore = create<SessionState>((set, get) => ({
     const { user } = useAuthStore.getState();
     if (!user || !sessionId || !startedAt) {
       // Reset without saving if user is not logged in or session is invalid
-      set({ status: 'idle', sessionId: null, startedAt: null });
+      set({ status: 'idle', sessionId: null, startedAt: null, moduleId: null });
       return;
     }
 
@@ -65,7 +68,7 @@ const useSessionStore = create<SessionState>((set, get) => ({
     // As per user request, only save if duration is meaningful
     if (finalStatus === 'completed' && durationSec < 60) {
       console.log(`Session ${sessionId} was too short (${durationSec}s). Not saving.`);
-      set({ status: 'idle', sessionId: null, startedAt: null, sumFocus: 0, countFocus: 0 });
+      set({ status: 'idle', sessionId: null, startedAt: null, sumFocus: 0, countFocus: 0, moduleId: null });
       return;
     }
 
@@ -73,13 +76,13 @@ const useSessionStore = create<SessionState>((set, get) => ({
 
     const sessionData = {
       ownerUid: user.uid,
-      // moduleId: currentModuleId, // TODO: Pass this in
+      moduleId: moduleId,
       startedAt: new Date(startedAt),
-      endedAt: new Date(endedAt),
+      endedAt: serverTimestamp(),
       durationSec,
       sumFocus,
       countFocus,
-      avgFocus: Math.min(100, Math.max(0, avgFocus)), // Clamp between 0-100
+      avgFocus: Math.round(Math.min(100, Math.max(0, avgFocus))), // Clamp and round
       status: finalStatus,
     };
 
@@ -92,7 +95,7 @@ const useSessionStore = create<SessionState>((set, get) => ({
       // TODO: Implement offline fallback (e.g., save to IndexedDB)
     } finally {
       // Reset state after finalizing
-      set({ status: 'idle', sessionId: null, startedAt: null, sumFocus: 0, countFocus: 0 });
+      set({ status: 'idle', sessionId: null, startedAt: null, sumFocus: 0, countFocus: 0, moduleId: null });
     }
   },
 
