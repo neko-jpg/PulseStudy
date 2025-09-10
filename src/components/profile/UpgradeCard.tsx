@@ -11,12 +11,16 @@ export function UpgradeCard({ onUpgraded }: { onUpgraded: () => void }) {
     try { setLoading(true); const res = await fetch('/api/billing/upgrade', { method:'POST' }); if (res.ok) onUpgraded() } finally { setLoading(false) }
   }
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="font-semibold mb-1 flex items-center gap-2"><Sparkles className="h-4 w-4" /> Plusへアップグレード</div>
-        <div className="text-sm text-muted-foreground">ベスト学習時間帯の提案や高度な分析、共有プロフィールの拡張などが利用可能に。</div>
-        <div className="mt-2"><Button onClick={upgrade} disabled={loading}>{loading ? '処理中…' : '今すぐアップグレード'}</Button></div>
-      </CardContent>
+    <Card className="p-6 bg-gradient-to-r from-blue-500 to-indigo-600 border-0">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xl font-bold text-white">Plusへアップグレード</h3>
+          <p className="text-blue-200">詳細な学習分析やプロフィール閲覧権限などをアンロック</p>
+        </div>
+        <Button onClick={upgrade} disabled={loading} className="bg-white text-blue-600 font-bold hover:bg-gray-200">
+          {loading ? '処理中…' : '詳しく見る'}
+        </Button>
+      </div>
     </Card>
   )
 }
