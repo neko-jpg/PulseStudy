@@ -1,21 +1,17 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CheckCircle2, XCircle, ArrowLeft, Brain, HelpCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, HelpCircle, Lightbulb, Bot } from 'lucide-react'
 import type { ModuleDoc } from '@/lib/types'
-import { useLearnStore } from '@/store/learn';
-import { useLearnSettingsStore } from '@/store/learnSettingsStore';
-import { FocusIndicator } from '@/components/learn/FocusIndicator';
-import { track, trackFlow, trackStepView, trackSubmit } from '@/lib/analytics'
-import Link from 'next/link'
+import { useLearnStore } from '@/store/learn'
+import { track, trackStepView, trackSubmit } from '@/lib/analytics'
 import { enqueue, flush, setupFlushListeners } from '@/lib/quizQueue'
 import { useToast } from '@/hooks/use-toast'
-import './learn.css'
+import { cn } from '@/lib/utils'
 
 export default function LearnPage() {
   const router = useRouter()
@@ -25,32 +21,26 @@ export default function LearnPage() {
   const [doc, setDoc] = useState<ModuleDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const qHeadingRef = useRef<HTMLDivElement | null>(null)
-  const [aiFeedback, setAiFeedback] = useState<string | null>(null)
-  const [aiLoading, setAiLoading] = useState(false)
-  const [nextModule, setNextModule] = useState<string | null>(null)
+  const [showHint, setShowHint] = useState(false)
+  const [startTime, setStartTime] = useState<number | null>(null)
 
-  const [hideHint, setHideHint] = useState(false)
-  const { learningMode } = useLearnSettingsStore();
   const {
     moduleId,
     step,
     idx,
     selected,
     submitting,
-    showExplain,
     correct,
     total,
     init,
     nextStep,
     select,
     setSubmitting,
-    toggleExplain,
     setStep,
     markResult,
+    setElapsedTime,
   } = useLearnStore()
 
-  // Fetch module
   useEffect(() => {
     let active = true
     const controller = new AbortController()
@@ -72,15 +62,13 @@ export default function LearnPage() {
         const json: ModuleDoc = await res.json()
         if (!active) return
         setDoc(json)
-        init(json.id)
-        trackStepView(json.id, 0, 'explain')
+        init(json.id, 'quiz') // Start directly with the quiz
       } catch (e: any) {
         setError(e?.name === 'AbortError' ? 'timeout' : 'network')
       } finally {
         if (active) setLoading(false)
       }
     }
-
     load()
     return () => {
       active = false
@@ -89,97 +77,36 @@ export default function LearnPage() {
     }
   }, [moduleParam, router, init])
 
-  // Setup flush for queued attempts
   useEffect(() => {
     flush()
     const cleanup = setupFlushListeners()
-    return () => { if (typeof cleanup === 'function') cleanup() }
+    return () => {
+      if (typeof cleanup === 'function') cleanup()
+    }
   }, [])
 
+  // Set start time when quiz starts
+  useEffect(() => {
+    if (step === 'quiz' && idx === 0 && !startTime) {
+      setStartTime(Date.now())
+    }
+  }, [step, idx, startTime])
+
   const totalItems = doc?.items.length ?? 0
-  const progress = useMemo(() => (totalItems ? Math.round((idx / totalItems) * 100) : 0), [idx, totalItems])
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (step === 'quiz') {
-        if (e.key >= '1' && e.key <= '4') select(parseInt(e.key, 10) - 1)
-        if (e.key === 'Enter') onSubmit()
-      }
-      if (step === 'result' && (e.key === 'n' || e.key === 'N' || e.key === 'Enter')) onNext()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [step, select])
-
-  // Focus management for question heading
-  useEffect(() => {
-    if (step === 'quiz' && qHeadingRef.current) qHeadingRef.current.focus()
-  }, [step, idx])
-
-  // Load AI feedback on mistake (keep before early returns to preserve hook order)
-  useEffect(() => {
-    if (!doc) return
-    const it = doc.items[idx]
-    if (step === 'result' && selected != null && selected !== it.answer) {
-      let cancelled = false
-      async function run() {
-        try {
-          setAiLoading(true); setAiFeedback(null)
-          const res = await fetch('/api/ai/feedback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              question: it.q,
-              userAnswer: it.choices[(selected as number)] ?? '',
-              subject: doc?.subject || '�w�K',
-              difficulty: 'medium',
-              hintsUsed: 0,
-            }),
-          })
-          if (!cancelled && res.ok) { const j = await res.json(); setAiFeedback(j.feedback || null) }
-        } catch { /* noop */ } finally { if (!cancelled) setAiLoading(false) }
-      }
-      run()
-      return () => { cancelled = true }
-    } else {
-      setAiFeedback(null); setAiLoading(false)
-    }
-  }, [step, idx, selected, doc])
-
-  // Suggest next module when incorrect on result
-  useEffect(() => {
-    let cancelled = false
-    async function loadTop() {
-      try {
-        if (!doc) return
-        const it = doc.items[idx]
-        if (!(step === 'result' && selected != null && it && selected !== it.answer)) return
-        const res = await fetch('/api/analytics', { cache: 'no-store' })
-        if (!res.ok) return
-        const j = await res.json()
-        const top = (j?.top3 && j.top3[0]) || null
-        if (!cancelled) setNextModule(top)
-      } catch { /* noop */ }
-    }
-    loadTop()
-    return () => { cancelled = true }
-  }, [step, idx, selected, doc])
-
-  function onGoHome() {
-    router.push('/home')
-  }
 
   function onNext() {
     if (!doc) return
     if (step === 'result' && idx + 1 >= doc.items.length) {
-      toast({ description: '学習を完了しました。分析画面に移動します。' })
-      router.push('/analytics')
+      if (startTime) {
+        const elapsedTime = Date.now() - startTime
+        setElapsedTime(elapsedTime)
+      }
+      router.push(`/learn/${moduleId}/results`)
       return
     }
+    setShowHint(false)
     nextStep(doc.items.length)
-    const nowStep = step === 'result' ? 'explain' : step === 'quiz' ? 'result' : 'quiz'
-    trackStepView(moduleId, step === 'result' ? idx + 1 : idx, nowStep)
+    trackStepView(moduleId, idx + 1, 'quiz')
   }
 
   async function onSubmit() {
@@ -203,39 +130,26 @@ export default function LearnPage() {
     setStep('result')
   }
 
-  function onToggleExplain() {
-    toggleExplain()
-    track({ name: 'quiz_explain_expand', props: { idx, moduleId } })
-  }
-
-  function onFlow(kind: 'focused' | 'bored' | 'confused') {
-    trackFlow(moduleId, idx, kind)
-  }
-
   if (loading) {
     return (
-      <div className="module-container p-4">
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-6 w-48 mt-2" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-40 w-full" />
-            <div className="mt-4 space-y-2">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-            </div>
-            {step === 'result' && nextModule && (
-              <div className="mt-2">
-                <Link href={`/learn?module=${nextModule}&source=retry`} className="text-sm underline">
-                  次の一手: 苦手を克服する（おすすめ）
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <main className="flex-1 p-8 bg-background">
+        <Skeleton className="h-8 w-72 mb-2" />
+        <Skeleton className="h-6 w-48 mb-8" />
+        <div className="bg-card border rounded-lg p-8">
+          <Skeleton className="h-6 w-32 mb-6" />
+          <Skeleton className="h-80 w-full mb-8" />
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+          <div className="flex justify-end items-center space-x-4">
+            <Skeleton className="h-12 w-24" />
+            <Skeleton className="h-12 w-32" />
+          </div>
+        </div>
+      </main>
     )
   }
 
@@ -251,136 +165,115 @@ export default function LearnPage() {
   if (!doc) return null
 
   const item = doc.items[idx]
-  const useEffect_moved = (..._args: any[]) => { /* moved to maintain hook order */ }
+  const progressPercentage = totalItems > 0 ? ((idx + 1) / totalItems) * 100 : 0
 
-  // Load AI feedback on mistake
-  useEffect_moved(() => {
-    if (!doc) return;
-    const it = doc.items[idx];
-    if (step === "result" && selected != null && selected !== it.answer) {
-      let cancelled = false;
-      async function run() {
-        try {
-          setAiLoading(true); setAiFeedback(null);
-          const res = await fetch("/api/ai/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: it.q, userAnswer: it.choices[(selected as number)] ?? "", subject: (doc?.subject) || "学習", difficulty: "medium", hintsUsed: 0 }) });
-          if (!cancelled && res.ok) { const j = await res.json(); setAiFeedback(j.feedback || null) }
-        } catch { /* noop */ } finally { if (!cancelled) setAiLoading(false) }
-      }
-      run();
-      return () => { cancelled = true }
-    } else {
-      setAiFeedback(null); setAiLoading(false);
+  const getButtonVariant = (i: number) => {
+    if (step === 'result') {
+      if (i === item.answer) return 'success'
+      if (i === selected) return 'destructive'
+      return 'secondary'
     }
-  }, [step, idx, selected, doc])
+    return selected === i ? 'default' : 'secondary'
+  }
 
   return (
-    <div className="module-container">
-      <header className="module-header">
-        <div className="header-left">
-          <button className="back-button" onClick={onGoHome} aria-label="ホームに戻る">
-            <ArrowLeft size={20} />
-          </button>
-          <div className="module-info">
-            <h1>{doc.title}</h1>
-            <div className="module-meta">
-              <span>{doc.subject ?? '学習'}</span>
-              <span>{idx + 1} / {doc.items.length}</span>
+    <main className="flex-1 p-8 bg-background text-foreground">
+      <header className="flex justify-between items-center mb-8">
+        <div>
+          <h2 className="text-3xl font-bold">{doc.title}</h2>
+          <div className="flex items-center mt-2">
+            <p className="text-muted-foreground mr-4">
+              {doc.subject} {idx + 1}/{totalItems}
+            </p>
+            <div className="w-64 h-2 bg-secondary rounded-full">
+              <div className="h-full bg-primary rounded-full" style={{ width: `${progressPercentage}%` }}></div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          {learningMode === 'focus' && <FocusIndicator />}
-          <div className="flow-meter" role="group" aria-label="Flow申告">
-            <button className="flex items-center gap-1" onClick={() => onFlow('focused')} aria-label="集中している"><Brain size={16} /> 集中</button>
-            <button className="ml-3 text-xs" onClick={() => onFlow('bored')} aria-label="退屈">退屈</button>
-            <button className="ml-2 text-xs" onClick={() => onFlow('confused')} aria-label="困っている">困った</button>
-          </div>
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" size="icon" className="bg-yellow-400 text-black hover:bg-yellow-500">
+            <Lightbulb />
+          </Button>
+          <Button variant="outline" size="icon">
+            <Bot />
+          </Button>
+          <Button variant="outline" size="icon">
+            <HelpCircle />
+          </Button>
         </div>
       </header>
 
-      <div className="progress-container">
-        <div className="progress-bar"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
-        <div className="progress-steps"><span>解説</span><span>クイズ</span><span>結果</span></div>
-      </div>
-
-      <main className="module-content p-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {step === 'explain' && '要点'}
-              {step === 'quiz' && '設問'}
-              {step === 'result' && '結果'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {step === 'explain' && (
-              <div>
-                <ul className="list-disc pl-5 mb-4">
-                  {doc.explain.map((t, i) => (<li key={i}>{t}</li>))}
-                </ul>
-                <Button onClick={() => { nextStep(doc.items.length); trackStepView(moduleId, idx, 'quiz') }}>問題へ</Button>
-              </div>
-            )}
-
-            {step === 'quiz' && (
-              <div>
-                <div ref={qHeadingRef as any} tabIndex={-1} className="font-medium mb-4 outline-none">{item.q}</div>
-                <div className="grid gap-2">
-                  {item.choices.map((c, i) => (
-                    <Button key={i} variant={selected === i ? 'secondary' : 'outline'} onClick={() => select(i)} role="radio" aria-checked={selected === i}>
-                      {i + 1}. {c}
-                    </Button>
-                  ))}
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <Button onClick={onSubmit} disabled={selected == null || submitting}>送信</Button>
-                  <Link href={`/collab?room=new&module=${moduleId}`} className="inline-flex items-center gap-1 text-sm" onClick={() => track({ name: 'module_click_help_collab', props: { moduleId } })}>
-                    <HelpCircle className="h-4 w-4" /> ヘルプ・コラボ
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            {step === 'result' && (
-              <div>
-                <div className="flex items-center gap-2" aria-live="polite">
-                  {selected === item.answer ? (
-                    <><CheckCircle2 className="text-green-600" /> 正解</>
-                  ) : (
-                    <><XCircle className="text-red-600" /> 不正解</>
-                  )}
-                </div>
-                <Accordion type="single" collapsible className="mt-3">
-                  <AccordionItem value="exp">
-                    <AccordionTrigger onClick={onToggleExplain}>解説をみる</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="text-sm text-muted-foreground">{item.exp}</div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-                {!aiLoading && aiFeedback && (
-                  <div className="mt-3 p-3 rounded bg-muted text-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <span><span className="font-medium">AIヒント:</span> {aiFeedback}</span>
-                      <button className="text-xs underline" onClick={() => setHideHint(true)} aria-label="ヒントを閉じる">閉じる</button>
-                    </div>
-                  </div>
-                )}
-                <div className="mt-4 flex items-center gap-3">
-                  <Button onClick={onNext}>次の問題へ</Button>
-                  <div className="text-sm text-muted-foreground">スコア: {correct}/{total}</div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="mt-4 flex items-center justify-between">
-          <Button variant="ghost" onClick={onGoHome}>やめる</Button>
-          <Link href="/home"><Button variant="outline">ホーム</Button></Link>
+      <div className="bg-card border p-8 rounded-lg">
+        <div className="mb-6">
+          <h3 className="text-xl font-bold text-muted-foreground">問題 {idx + 1}/{totalItems}</h3>
+          <p className="mt-2 text-lg">{item.q}</p>
         </div>
-      </main>
-    </div>
+
+        {item.imageUrl && (
+          <div className="flex justify-center items-center mb-8 h-80 bg-muted rounded-lg p-2">
+            <Image
+              alt={item.imageAlt || 'Question image'}
+              className="h-full w-auto object-contain rounded-md"
+              src={item.imageUrl}
+              width={800}
+              height={320}
+              priority
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          {item.choices.map((choice, i) => (
+            <Button
+              key={i}
+              variant={getButtonVariant(i)}
+              className={cn('text-left justify-start h-auto py-4', {
+                'ring-2 ring-ring': selected === i && step === 'quiz',
+              })}
+              onClick={() => step === 'quiz' && select(i)}
+              disabled={step === 'result'}
+            >
+              <span className="font-mono">{String.fromCharCode(65 + i)}. {choice}</span>
+            </Button>
+          ))}
+        </div>
+
+        {step === 'result' && (
+          <div className="mb-8 p-4 rounded-lg bg-muted">
+            <h4 className="font-bold text-lg mb-2 flex items-center">
+              {selected === item.answer ? (
+                <CheckCircle2 className="text-green-500 mr-2" />
+              ) : (
+                <XCircle className="text-red-500 mr-2" />
+              )}
+              {selected === item.answer ? '正解' : '不正解'}
+            </h4>
+            <p className="text-muted-foreground">{item.exp}</p>
+          </div>
+        )}
+
+        <div className="flex justify-end items-center space-x-4">
+          <Button variant="outline" onClick={() => setShowHint(true)} disabled={showHint}>
+            ヒント
+          </Button>
+          <Button
+            className="bg-orange-500 hover:bg-orange-600 text-white"
+            onClick={step === 'quiz' ? onSubmit : onNext}
+            disabled={selected === undefined}
+          >
+            {step === 'quiz' ? '解答' : '次の問題へ'}
+          </Button>
+        </div>
+
+        {showHint && (
+           <div className="mt-6 p-4 rounded-lg bg-muted border">
+            <h4 className="font-bold mb-2">ヒント</h4>
+            <p className="text-muted-foreground">{item.exp}</p>
+            <Button variant="link" onClick={() => setShowHint(false)} className="p-0 h-auto mt-2">閉じる</Button>
+          </div>
+        )}
+      </div>
+    </main>
   )
 }
 

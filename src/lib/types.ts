@@ -2,6 +2,8 @@ export type Step = 'explain' | 'quiz' | 'result'
 
 export type QuizItem = {
   q: string
+  imageUrl?: string
+  imageAlt?: string
   choices: string[]
   answer: number // index
   exp: string
@@ -24,6 +26,7 @@ export type LearnState = {
   showExplain: boolean
   correct: number
   total: number
+  elapsedTime: number
 }
 
 // Challenge types
