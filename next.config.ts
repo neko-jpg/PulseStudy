@@ -8,7 +8,7 @@ const securityHeaders = [
       "base-uri 'self'",
       "frame-ancestors 'self'",
       "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' data: blob: https: http: ws: wss: https://storage.googleapis.com",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net",
       "worker-src 'self' blob: https://cdn.jsdelivr.net",
