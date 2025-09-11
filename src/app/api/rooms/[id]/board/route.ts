@@ -58,7 +58,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   if (action === 'clear') {
-    setBoard(id, { strokes: [], shapes: [], texts: [], notes: [] })
+    setBoard(id, { strokes: [], shapes: [], texts: [], notes: [], rev: 0 })
     return new Response(null, { status: 204 })
   }
 
@@ -67,7 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!parsed.success) return new Response('Bad Request', { status: 400 })
     if (boardLocked && !(parsed.data.clientId === room.hostId || parsed.data.clientId === room.solverId)) return new Response(null, { status: 423 })
     const { strokeId, clientId, color, size } = parsed.data
-    startLiveStroke(id, strokeId, clientId, color, size)
+    startLiveStroke(id, { strokeId, clientId, color, size } as any)
     log('board_live_start', 'info', { roomId: id, clientId, strokeId })
     return new Response(null, { status: 204 })
   }
@@ -76,7 +76,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!parsed.success) return new Response('Bad Request', { status: 400 })
     // throttle per stroke to ~25ms granularity to reduce server load
     const key: RateKey = `${id}:live:${parsed.data.strokeId}`
-    if (!tooSoon(key, 25)) appendLivePoints(id, parsed.data.strokeId, parsed.data.points as any)
+    if (!tooSoon(key, 25)) appendLivePoints(id, { strokeId: parsed.data.strokeId, points: parsed.data.points } as any)
     return new Response(null, { status: 204 })
   }
   if (action === 'end_live') {

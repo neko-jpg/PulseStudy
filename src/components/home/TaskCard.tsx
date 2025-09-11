@@ -16,6 +16,25 @@ type Props = {
 }
 
 export function TaskCard({ module, loading, onClick, onImpression }: Props) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [sent, setSent] = useState(false)
+
+  useEffect(() => {
+    if (!ref.current || sent || !onImpression) return
+    const el = ref.current
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting && !sent) {
+          setSent(true)
+          onImpression()
+          obs.disconnect()
+        }
+      })
+    }, { threshold: 0.5 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [onImpression, sent])
+
   if (loading) {
     return (
       <Card aria-busy="true" aria-live="polite">
@@ -35,24 +54,6 @@ export function TaskCard({ module, loading, onClick, onImpression }: Props) {
   }
 
   if (!module) return null
-
-  const ref = useRef<HTMLDivElement | null>(null)
-  const [sent, setSent] = useState(false)
-  useEffect(() => {
-    if (!ref.current || sent || !onImpression) return
-    const el = ref.current
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting && !sent) {
-          setSent(true)
-          onImpression()
-          obs.disconnect()
-        }
-      })
-    }, { threshold: 0.5 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [onImpression, sent])
 
   return (
     <div ref={ref}>

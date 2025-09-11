@@ -1,24 +1,24 @@
-import Link from 'next/link';
-import Image from 'next/image';
-import { notFound } from 'next/navigation';
-import { summaryData } from '@/lib/summary-data';
-import { Button } from '@/components/ui/button';
-import { HelpCircle, Mic, BookOpen, ChevronLeft } from 'lucide-react';
+import Link from 'next/link'
+import Image from 'next/image'
+import { notFound } from 'next/navigation'
+import { summaryData } from '@/lib/summary-data'
+import { Button } from '@/components/ui/button'
+import { HelpCircle, Mic, BookOpen, ChevronLeft } from 'lucide-react'
 
 type PageProps = {
-  params: { subjectId: string };
-  searchParams?: { [key: string]: string | string[] | undefined };
-};
+  params: Promise<{ subjectId: string }>
+}
 
 export default async function SummaryPage({ params }: PageProps) {
-  const data = summaryData[params.subjectId];
+  const { subjectId } = await params
+  const data = summaryData[subjectId]
 
   if (!data) {
-    notFound();
+    notFound()
   }
 
-  const { title, subject, progress, points, imageUrl, imageAlt } = data;
-  const progressPercentage = (parseInt(progress.split('/')[0]) / parseInt(progress.split('/')[1])) * 100;
+  const { title, subject, progress, points, imageUrl, imageAlt } = data
+  const progressPercentage = (parseInt(progress.split('/')[0]) / parseInt(progress.split('/')[1])) * 100
 
   return (
     <div className="flex-1 p-8 bg-background text-foreground">
@@ -75,12 +75,12 @@ export default async function SummaryPage({ params }: PageProps) {
             学習選択へ
           </Button>
         </Link>
-        <Link href={`/learn?module=${params.subjectId}`} passHref>
+        <Link href={`/learn?module=${subjectId}`} passHref>
           <Button className="px-12 py-4 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors text-lg">
             問題へ
           </Button>
         </Link>
       </div>
     </div>
-  );
+  )
 }

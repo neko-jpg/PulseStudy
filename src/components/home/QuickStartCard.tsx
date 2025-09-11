@@ -17,6 +17,27 @@ type Props = {
 }
 
 export function QuickStartCard({ data, loading, error, onRetry, onQuickStart }: Props) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [sent, setSent] = useState(false)
+
+  useEffect(() => {
+    if (!ref.current || sent || !data?.moduleId) return
+    const el = ref.current
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting && !sent) {
+          setSent(true)
+          import('@/lib/analytics').then((m) =>
+            m.track({ name: 'home_impression_quickstart', props: { moduleId: data.moduleId } })
+          )
+          obs.disconnect()
+        }
+      })
+    }, { threshold: 0.5 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [data?.moduleId, sent])
+
   if (loading) {
     return (
       <Card aria-busy="true" aria-live="polite">
@@ -47,24 +68,6 @@ export function QuickStartCard({ data, loading, error, onRetry, onQuickStart }: 
   }
 
   if (!data) return null
-
-  const ref = useRef<HTMLDivElement | null>(null)
-  const [sent, setSent] = useState(false)
-  useEffect(() => {
-    if (!ref.current || sent) return
-    const el = ref.current
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting && !sent) {
-          setSent(true)
-          import('@/lib/analytics').then((m) => m.track({ name: 'home_impression_quickstart', props: { moduleId: data.moduleId } }))
-          obs.disconnect()
-        }
-      })
-    }, { threshold: 0.5 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [data?.moduleId, sent])
 
   return (
     <Card ref={ref as any}>
