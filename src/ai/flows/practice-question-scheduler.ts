@@ -29,8 +29,72 @@ const SchedulePracticeQuestionsOutputSchema = z.object({
 });
 export type SchedulePracticeQuestionsOutput = z.infer<typeof SchedulePracticeQuestionsOutputSchema>;
 
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 export async function schedulePracticeQuestions(input: SchedulePracticeQuestionsInput): Promise<SchedulePracticeQuestionsOutput> {
   return schedulePracticeQuestionsFlow(input);
+}
+
+/**
+ * Higher-level function to generate a dynamic review schedule for a user.
+ * It fetches quiz attempt data, analyzes it, and then calls the Genkit flow.
+ */
+export async function getReviewScheduleForUser(userId: string): Promise<SchedulePracticeQuestionsOutput> {
+    if (!userId) {
+        throw new Error('User ID is required.');
+    }
+
+    // 1. Fetch user's recent quiz attempts
+    const attemptsQuery = query(
+        collection(db, 'quiz_attempts'),
+        where('userId', '==', userId),
+        orderBy('submittedAt', 'desc'),
+        limit(100) // Analyze last 100 attempts
+    );
+    const querySnapshot = await getDocs(attemptsQuery);
+    const attempts = querySnapshot.docs.map(doc => doc.data());
+
+    if (attempts.length < 5) {
+        return { scheduledQuestions: [{
+            subject: 'General',
+            question: 'まずはクイズを5問以上解いて、あなたのための復習プランを作りましょう！',
+            answer: '頑張ってください！'
+        }] };
+    }
+
+    // 2. Analyze performance to find struggling subjects
+    const performance: Record<string, { correct: number; incorrect: number }> = {};
+    const strugglingSubjects: Record<string, number> = {};
+
+    attempts.forEach(attempt => {
+        if (!performance[attempt.moduleId]) {
+            performance[attempt.moduleId] = { correct: 0, incorrect: 0 };
+        }
+        if (attempt.isCorrect) {
+            performance[attempt.moduleId].correct++;
+        } else {
+            performance[attempt.moduleId].incorrect++;
+        }
+    });
+
+    for (const moduleId in performance) {
+        const { correct, incorrect } = performance[moduleId];
+        if (incorrect > correct) {
+            // Higher number indicates more struggle
+            strugglingSubjects[moduleId] = incorrect / (correct + incorrect);
+        }
+    }
+
+    // 3. Call the Genkit flow with the analyzed data
+    const input: SchedulePracticeQuestionsInput = {
+        timeOfDay: 'now',
+        numQuestionsPerDay: 3, // Generate 3 review questions
+        userPerformanceData: strugglingSubjects,
+        preferredSubjects: Object.keys(strugglingSubjects),
+    };
+
+    return schedulePracticeQuestionsFlow(input);
 }
 
 const recommendQuestion = ai.defineTool({
