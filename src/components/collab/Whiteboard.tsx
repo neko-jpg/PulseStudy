@@ -5,6 +5,8 @@ import { track } from '@/lib/analytics'
 import { subscribeRoomState } from '@/lib/realtime'
 import { useCollabStore } from '@/store/collab'
 import type { BoardStroke as Stroke, BoardShape as Shape, BoardText as TextItem, BoardNote as Sticky } from '@/lib/types'
+import { collection, addDoc, onSnapshot, query, serverTimestamp, orderBy } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 type Tool = 'select'|'pen'|'eraser'|'text'|'line'|'rect'|'laser'|'note'|'snap'
 
@@ -142,7 +144,7 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     }
   }, [])
 
-  // realtime subscribe to room board
+  // realtime subscribe to room board (excluding strokes)
   useEffect(() => {
     if (!roomId) { if (unsubRef.current) { unsubRef.current(); unsubRef.current=null }; return }
     if (unsubRef.current) { unsubRef.current(); unsubRef.current=null }
@@ -154,9 +156,9 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
       if (drawingRef.current.active) return // avoid interrupting local drawing
       if (rev <= remoteRevRef.current) return
       remoteRevRef.current = rev
-      // apply remote board
+      // apply remote board (strokes are now handled by Firestore)
       try {
-        setStrokes(Array.isArray(b.strokes) ? (b.strokes as any).filter(Boolean) : [])
+        // setStrokes(Array.isArray(b.strokes) ? (b.strokes as any).filter(Boolean) : [])
         setShapes(Array.isArray(b.shapes) ? (b.shapes as any).filter(Boolean) : [])
         setTexts(Array.isArray(b.texts) ? (b.texts as any).filter(Boolean) : [])
         setNotes(Array.isArray(b.notes) ? (b.notes as any).filter(Boolean) : [])
@@ -193,6 +195,30 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     const id = requestAnimationFrame(() => requestAnimationFrame(() => doResize()))
     return () => cancelAnimationFrame(id)
   }, [fs])
+
+  // NEW: Subscribe to strokes from Firestore subcollection
+  useEffect(() => {
+    if (!roomId) return;
+
+    const strokesCollection = collection(db, 'rooms', roomId, 'strokes');
+    const q = query(strokesCollection, orderBy('timestamp', 'asc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (drawingRef.current.active) return; // Avoid interrupting local drawing
+
+        const newStrokes: Stroke[] = [];
+        snapshot.forEach((doc) => {
+            // NOTE: The 'timestamp' field is from Firestore server, not part of Stroke type
+            const { timestamp, ...strokeData } = doc.data();
+            newStrokes.push(strokeData as Stroke);
+        });
+        setStrokes(newStrokes);
+    }, (error) => {
+      console.error("Error fetching strokes:", error)
+    });
+
+    return () => unsubscribe();
+  }, [roomId]);
 
   // optional: listen to native fullscreen change
   useEffect(() => {
@@ -499,7 +525,15 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
         const remain = liveBufRef.current.splice(0)
         if (remain.length>0){ try { await fetch(`/api/rooms/${roomId}/board`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'live_points', strokeId: sid, points: remain }) }) } catch {} }
         try { await fetch(`/api/rooms/${roomId}/board`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'end_live', strokeId: sid }) }) } catch {}
-      } else { syncAddStroke(stroke) }
+      } else if (roomId) {
+        // NEW: Write stroke to Firestore subcollection
+        try {
+          const strokeWithTimestamp = { ...stroke, timestamp: serverTimestamp() };
+          await addDoc(collection(db, 'rooms', roomId, 'strokes'), strokeWithTimestamp);
+        } catch (error) {
+            console.error("Failed to save stroke:", error);
+        }
+      }
     }
     drawingRef.current={active:false,draft:null,shapeStart:null}
     liveIdRef.current=null

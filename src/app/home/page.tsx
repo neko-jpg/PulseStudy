@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardHeader } from '@/components/dashboard/Header';
 import { StudyFocusCard } from '@/components/dashboard/StudyFocusCard';
 import { FocusGraph } from '@/components/dashboard/FocusGraph';
@@ -8,49 +8,11 @@ import { QuickStart, type QuickStartItem } from '@/components/dashboard/QuickSta
 import { ChallengesCarousel, type Challenge } from '@/components/dashboard/ChallengesCarousel';
 import { FocusModal } from '@/components/dashboard/FocusModal';
 import './new-home.css';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Mock data for the components
+// Mock data for components that are not part of this task
 const MOCK_USER_NAME = '葵';
 const MOCK_HAS_NOTIFICATIONS = true;
-
-const MOCK_STUDY_FOCUS_CARD_PROPS = {
-  aiCommand: 'AIからの今日の司令: 苦手分野を克服し、自信をつけましょう！',
-  taskTitle: '不定詞の基礎を理解',
-  focusPoints: 15,
-  durationMinutes: 5,
-  questionCount: 4,
-  progressPercentage: 25,
-  taskUrl: '/learn/eng-infinitive-1/summary',
-};
-
-const MOCK_QUICK_START_ITEMS: QuickStartItem[] = [
-  {
-    iconName: 'history',
-    iconColorClass: 'text-blue-400',
-    title: '復習する',
-    badge: { text: 'AIのおすすめ', colorClass: 'bg-green-500' },
-    href: '/learn/review',
-  },
-  {
-    iconName: 'school',
-    iconColorClass: 'text-orange-400',
-    title: '新しい単元へ',
-    href: '/learn-top',
-  },
-  {
-    iconName: 'quiz',
-    iconColorClass: 'text-purple-400',
-    title: 'テスト対策',
-    badge: { text: '人気', colorClass: 'bg-red-500' },
-    href: '/challenges/test-prep',
-  },
-  {
-    iconName: 'lightbulb',
-    iconColorClass: 'text-teal-400',
-    title: '苦手克服',
-    href: '/learn/weakness',
-  },
-];
 
 const MOCK_CHALLENGES: Challenge[] = [
     {
@@ -75,31 +37,129 @@ const MOCK_CHALLENGES: Challenge[] = [
         shadowClass: 'hover:shadow-orange-500/50',
         href: '/challenges/2'
     },
-    {
-        iconName: 'rocket',
-        title: 'スピードランナー',
-        description: '推奨時間の半分でタスクを完了',
-        progress: 45,
-        progressText: '京大志望者の65%が挑戦中',
-        gradientClass: 'from-teal-500 to-green-600',
-        shadowClass: 'hover:shadow-teal-500/50',
-        href: '/challenges/3'
-    }
 ];
+
+interface Recommendation {
+  aiCommand: string;
+  taskTitle: string;
+  taskUrl: string;
+}
+
+interface ReviewQuestion {
+    subject: string;
+    question: string;
+    answer: string;
+}
 
 export default function HomePage() {
   const [isFocusModalOpen, setFocusModalOpen] = useState(false);
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
+  const [quickStartItems, setQuickStartItems] = useState<QuickStartItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchAllData() {
+      setIsLoading(true);
+      try {
+        // Fetch AI learning path
+        const recResponse = await fetch('/api/ai/recommendations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goals: '次のテストで90点以上取る' }),
+        });
+        if (!recResponse.ok) throw new Error('Failed to fetch recommendation');
+        const recData = await recResponse.json();
+        const learningPath = recData.learningPath || '';
+        const firstLine = learningPath.split('\n')[0].replace(/^- /, '').replace(/\*/g, '');
+        setRecommendation({
+          aiCommand: learningPath,
+          taskTitle: firstLine || 'AIのおすすめ学習',
+          taskUrl: '/learn-top',
+        });
+
+        // Fetch AI review schedule
+        const reviewResponse = await fetch('/api/ai/review-schedule');
+        if (!reviewResponse.ok) throw new Error('Failed to fetch review schedule');
+        const reviewData = await reviewResponse.json();
+        const firstReviewSubject = reviewData.scheduledQuestions?.[0]?.subject || 'review';
+
+        // Generate dynamic QuickStart items
+        const dynamicQuickStartItems: QuickStartItem[] = [
+          {
+            iconName: 'history',
+            iconColorClass: 'text-blue-400',
+            title: '復習する',
+            badge: { text: 'AIのおすすめ', colorClass: 'bg-green-500' },
+            href: `/learn/${firstReviewSubject}`, // Dynamic link
+          },
+          {
+            iconName: 'school',
+            iconColorClass: 'text-orange-400',
+            title: '新しい単元へ',
+            href: '/learn-top',
+          },
+          {
+            iconName: 'quiz',
+            iconColorClass: 'text-purple-400',
+            title: 'テスト対策',
+            badge: { text: '人気', colorClass: 'bg-red-500' },
+            href: '/challenges/test-prep',
+          },
+          {
+            iconName: 'lightbulb',
+            iconColorClass: 'text-teal-400',
+            title: '苦手克服',
+            href: `/learn/${firstReviewSubject}`, // Also point to the weak subject
+          },
+        ];
+        setQuickStartItems(dynamicQuickStartItems);
+
+      } catch (error) {
+        console.error(error);
+        // Set fallback data on error
+        setRecommendation({
+          aiCommand: 'AIからの提案の取得に失敗しました。',
+          taskTitle: '新しい単元を学習する',
+          taskUrl: '/learn-top',
+        });
+        setQuickStartItems([
+          { iconName: 'history', title: '復習する', href: '/learn/review', iconColorClass: 'text-blue-400' },
+          { iconName: 'school', title: '新しい単元へ', href: '/learn-top', iconColorClass: 'text-orange-400' }
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchAllData();
+  }, []);
 
   return (
     <div className="flex-1 p-8 overflow-y-auto bg-slate-900 text-white">
         <DashboardHeader userName={MOCK_USER_NAME} hasNotifications={MOCK_HAS_NOTIFICATIONS} />
 
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center space-y-8">
-            <StudyFocusCard {...MOCK_STUDY_FOCUS_CARD_PROPS} />
+            {isLoading || !recommendation ? (
+              <Skeleton className="h-[150px] w-full rounded-xl" />
+            ) : (
+              <StudyFocusCard
+                aiCommand={recommendation.aiCommand}
+                taskTitle={recommendation.taskTitle}
+                focusPoints={15}
+                durationMinutes={5}
+                questionCount={4}
+                progressPercentage={0}
+                taskUrl={recommendation.taskUrl}
+              />
+            )}
 
             <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
                 <FocusGraph onClick={() => setFocusModalOpen(true)} />
-                <QuickStart items={MOCK_QUICK_START_ITEMS} />
+                {quickStartItems.length > 0 ? (
+                  <QuickStart items={quickStartItems} />
+                ) : (
+                  <Skeleton className="h-[200px] w-full rounded-xl" />
+                )}
             </div>
 
             <div className="w-full">
