@@ -61,7 +61,7 @@ export function approveControl(id: string, userId: string) {}
 export function addInviteToken(id: string): string { return 'mock_token'; }
 export function validateToken(id: string, token: string): boolean { return true; }
 export function joinRoom(id: string, user: { name: string }): { me: any } { return { me: { id: 'mock_id' } }; }
-export function leaveRoom(id: string, userId: string) {}
+export function leaveRoom(id: string, userId?: string) {}
 export function setPrivacy(id: string, privacy: 'open' | 'approval') {}
 export function askQuiz(id: string): any { return { q: 'mock question?', choices: ['a', 'b'] }; }
 export function answerQuiz(id: string, choice: number): any { return { result: { correct: true } }; }

@@ -93,7 +93,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { clientId, x, y, color } = parsed.data
     // throttle cursor updates per client to ~60ms
     const key: RateKey = `${id}:cursor:${clientId}`
-    if (!tooSoon(key, 60)) setCursor(id, clientId, x, y, color)
+if (!tooSoon(key, 60)) setCursor(id, { x, y, color, clientId })
     return new Response(null, { status: 204 })
   }
 

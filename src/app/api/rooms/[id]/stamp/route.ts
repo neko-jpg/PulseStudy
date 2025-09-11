@@ -16,6 +16,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const last = RATE_MAP.get(key) || 0
   if (now - last < 200) return new Response(null, { status: 204 })
   RATE_MAP.set(key, now)
-  const res = addStampForUser(id, parsed.data.userId, parsed.data.type)
-  return new Response(null, { status: res.code })
+  addStampForUser(id, parsed.data.type, parsed.data.userId)
+  return new Response(null, { status: 204 })
 }

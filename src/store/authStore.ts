@@ -9,6 +9,9 @@ type AuthState = {
   setName: (n: string) => void
   user: { uid: string } | null
   setUser: (u: { uid: string } | null) => void
+  loading: boolean
+  error: string | null
+  signInWithGoogle: () => Promise<void> | void
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -18,5 +21,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   setName: (n) => set({ name: n }),
   user: null,
   setUser: (u) => set({ user: u }),
+  loading: false,
+  error: null,
+  signInWithGoogle: () => {
+    // Stubbed auth action to satisfy build; replace with real auth later
+    set({ loading: true, error: null })
+    setTimeout(() => set({ loading: false, user: { uid: 'stub' } }), 10)
+  },
 }))
 

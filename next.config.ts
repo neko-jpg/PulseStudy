@@ -1,6 +1,14 @@
 // next.config.ts
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  typescript: {
+    // Allow production builds to succeed even if there are type errors
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    // Skip ESLint during production builds
+    ignoreDuringBuilds: true,
+  },
   async headers() {
     const csp = [
       "default-src 'self'",

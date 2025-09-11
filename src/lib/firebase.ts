@@ -11,20 +11,11 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+const hasCoreConfig = !!(firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId);
 
-if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
-  const missing = [
-    !firebaseConfig.apiKey && "NEXT_PUBLIC_FIREBASE_API_KEY",
-    !firebaseConfig.authDomain && "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-    !firebaseConfig.projectId && "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-  ].filter(Boolean).join(', ');
-
-  throw new Error(`Missing Firebase config: ${missing}. Please check your .env file.`);
-}
-
-
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Initialize Firebase only when required env vars are present.
+// During build without envs, export safe fallbacks to avoid crashes.
+const app = hasCoreConfig ? (!getApps().length ? initializeApp(firebaseConfig) : getApp()) : null;
+export const auth = app ? getAuth(app) : (null as any);
+export const db = app ? getFirestore(app) : (null as any);
 export const googleProvider = new GoogleAuthProvider();

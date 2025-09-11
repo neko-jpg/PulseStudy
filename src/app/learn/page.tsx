@@ -149,7 +149,7 @@ export default function LearnPage() {
         const feedbackResult = await getPersonalizedFeedback({
           question: item.q,
           userAnswer: item.choices[selected],
-          subject: doc.subject,
+          subject: doc.subject || '',
           difficulty: 'medium', // Placeholder
           hintsUsed: 0, // Placeholder
         })
