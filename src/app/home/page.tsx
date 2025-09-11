@@ -37,6 +37,16 @@ const MOCK_CHALLENGES: Challenge[] = [
         shadowClass: 'hover:shadow-orange-500/50',
         href: '/challenges/2'
     },
+    {
+        iconName: 'rocket',
+        title: 'スピードランナー',
+        description: '推奨時間の半分でタスクを完了',
+        progress: 45,
+        progressText: '京大志望者の65%が挑戦中',
+        gradientClass: 'from-teal-500 to-green-600',
+        shadowClass: 'hover:shadow-teal-500/50',
+        href: '/challenges/3'
+    },
 ];
 
 interface Recommendation {
