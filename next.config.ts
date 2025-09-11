@@ -12,7 +12,7 @@ const nextConfig = {
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.gstatic.com",
       "frame-src 'self'",
       // ← ここが今回の本丸：ASCIIのみ・1行
-      "connect-src 'self' data: blob: https: http: ws: wss: https://storage.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.google.com https://www.googleapis.com https://www.gstatic.com https://firebaseinstallations.googleapis.com https://firebasestorage.googleapis.com",
+      "connect-src 'self' data: blob: ws: wss: https://storage.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.google.com https://www.googleapis.com https://www.gstatic.com https://firebaseinstallations.googleapis.com https://firebasestorage.googleapis.com",
     ].join("; ");
 
     const securityHeaders = [

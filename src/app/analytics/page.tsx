@@ -73,7 +73,9 @@ export default function AnalyticsPage() {
       }
     );
 
-    // Return a cleanup function to unsubscribe from the listener when the component unmounts.
+    // This cleanup function is crucial for unsubscribing from the Firestore listener
+    // when the component unmounts. This prevents memory leaks and unnecessary network requests
+    // by ensuring the listener does not persist after the user navigates away.
     return () => {
       unsubscribe();
     };

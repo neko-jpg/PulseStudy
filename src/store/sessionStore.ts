@@ -77,7 +77,7 @@ const useSessionStore = create<SessionState>((set, get) => ({
     const sessionData = {
       ownerUid: user.uid,
       moduleId: moduleId,
-      startedAt: new Date(startedAt),
+      startedAt: serverTimestamp(),
       endedAt: serverTimestamp(),
       durationSec,
       sumFocus,
