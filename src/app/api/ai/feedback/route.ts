@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const {
       question,
       userAnswer,
-      subject = '学習',
+      subject = '一般',
       difficulty = 'medium',
       hintsUsed = 0,
     } = body || {}
@@ -19,10 +19,10 @@ export async function POST(req: NextRequest) {
     const useMock =
       process.env.AI_MODE === 'mock' ||
       process.env.NEXT_PUBLIC_USE_MOCK_AI === '1' ||
-      (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY)
+      (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY)
 
     if (useMock) {
-      const feedback = `ヒント: ${subject} の考え方をもう一度整理しよう。間違えやすいポイントを軽く確認してから再挑戦してね。`
+      const feedback = `ポイント: ${subject}の要点をもう一度整理しましょう。間違えやすい箇所を短く確認してから再挑戦してみてください。`
       return NextResponse.json({ feedback })
     }
 

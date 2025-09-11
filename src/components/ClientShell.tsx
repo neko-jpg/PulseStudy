@@ -6,14 +6,14 @@ import { Toaster } from '@/components/ui/toaster';
 import { AppSidebar } from '@/components/app-sidebar';
 import { FocusMeterProvider } from './providers/FocusMeterProvider';
 import { useSessionStore } from '@/store/sessionStore';
-import { usePrivacyStore } from '@/store/privacyStore';
-import { PrivacyConsentModal } from './common/PrivacyConsentModal';
+// import { usePrivacyStore } from '@/store/privacyStore';
+// import { PrivacyConsentModal } from './common/PrivacyConsentModal';
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const showSidebar = pathname !== '/';
 
-  const { cameraConsent, setCameraConsent } = usePrivacyStore();
+  // const { cameraConsent, setCameraConsent } = usePrivacyStore();
 
   // Add global listeners to ensure session data is saved if the user leaves.
   useEffect(() => {
@@ -55,17 +55,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           {children}
         </main>
         <Toaster />
-        <PrivacyConsentModal
-          isOpen={cameraConsent === 'prompt'}
-          onOpenChange={(isOpen) => {
-            // If the user closes the dialog without choosing, treat it as 'denied'
-            if (!isOpen) {
-              setCameraConsent('denied');
-            }
-          }}
-          onAccept={() => setCameraConsent('granted')}
-          onDecline={() => setCameraConsent('denied')}
-        />
+        {/** Camera consent modal is now triggered by user action inside Focus flow. */}
       </div>
     </FocusMeterProvider>
   );

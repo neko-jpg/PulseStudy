@@ -8,8 +8,18 @@ import { auth } from 'firebase-admin';
 // For now, we'll require it in the request body.
 // This should be replaced with actual authentication logic.
 async function getUserIdFromRequest(request: Request): Promise<string | null> {
+  // Dev fallback: allow UID via header/query when not in production
+  try {
+    const url = new URL(request.url);
+    const devUid = request.headers.get('x-dev-uid') || url.searchParams.get('devUid');
+    if (process.env.NODE_ENV !== 'production' && devUid) return devUid;
+  } catch {}
+
   // Placeholder: Replace with your actual auth logic (e.g., parsing a JWT)
-  const authToken = request.headers.get('Authorization')?.split('Bearer ')[1];
+  const authHeader = request.headers.get('Authorization');
+  const authToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice('Bearer '.length)
+    : undefined;
   if (!authToken) return null;
 
   try {

@@ -1,5 +1,7 @@
-import Link from 'next/link';
+"use client";
+import { useRouter } from 'next/navigation';
 import { Clock } from 'lucide-react';
+import { startSession } from '@/lib/session';
 
 export type Recommendation = {
   moduleId: string;
@@ -15,12 +17,22 @@ type AiRecommendationCardProps = {
 
 export function AiRecommendationCard({ recommendation }: AiRecommendationCardProps) {
   const { moduleId, title, difficulty, durationMinutes } = recommendation;
+  const router = useRouter();
 
-  const difficultyColorMap = {
+  const difficultyColorMap: Record<Recommendation['difficulty'], string> = {
     '基礎': 'bg-green-600',
     '標準': 'bg-gray-600',
     '応用': 'bg-red-600',
   };
+
+  async function onStart() {
+    try {
+      const data = await startSession({ moduleId });
+      router.push(`/learn/${data.moduleId}/summary`);
+    } catch {
+      router.push(`/learn/${moduleId}/summary`);
+    }
+  }
 
   return (
     <div className="bg-gray-800 p-6 rounded-xl flex flex-col">
@@ -32,11 +44,9 @@ export function AiRecommendationCard({ recommendation }: AiRecommendationCardPro
         <Clock className="h-4 w-4 mr-1" />
         <span>{durationMinutes}分</span>
       </div>
-      <Link href={`/learn/${moduleId}/summary`} passHref>
-        <button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg mt-4">
-          開始
-        </button>
-      </Link>
+      <button onClick={onStart} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg mt-4">
+        開始
+      </button>
     </div>
   );
 }

@@ -26,7 +26,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ pending: true, me }, { status: 202 })
   }
 
-  const { me } = joinRoom(id, { name: name || 'ゲスト' })!
+  const joined = joinRoom(id, { name: name || 'ゲスト' })
+  if (!joined) return NextResponse.json({ ok: false }, { status: 500 })
+  const { me } = joined
   const role = room.solverId === me.id ? 'solver' : 'viewer'
   return NextResponse.json({ role, me }, { status: 200 })
 }

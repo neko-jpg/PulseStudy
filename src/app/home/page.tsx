@@ -17,11 +17,11 @@ const MOCK_HAS_NOTIFICATIONS = true;
 const MOCK_CHALLENGES: Challenge[] = [
     {
         iconName: 'flame',
-        badge: 'あと3日で終了！',
-        title: '連続学習マスター',
-        description: '7日間連続で学習を完了させよう！',
+        badge: 'あと3日で終亁E��E,
+        title: '連続学習�Eスター',
+        description: '7日間連続で学習を完亁E��せよぁE��E,
         progress: 70,
-        progressText: '東大志望者の80%が挑戦中',
+        progressText: '東大志望老E�E80%が挑戦中',
         gradientClass: 'from-blue-500 to-indigo-600',
         shadowClass: 'hover:shadow-blue-500/50',
         href: '/challenges/1'
@@ -29,10 +29,10 @@ const MOCK_CHALLENGES: Challenge[] = [
     {
         iconName: 'star',
         badge: 'NEW',
-        title: 'パーフェクトデイ',
-        description: '1日の全ミッションを100%でクリア',
+        title: 'パ�Eフェクトデイ',
+        description: '1日の全ミッションめE00%でクリア',
         progress: 10,
-        progressText: '最高の集中力を証明しよう',
+        progressText: '最高�E雁E��力を証明しよう',
         gradientClass: 'from-orange-500 to-red-600',
         shadowClass: 'hover:shadow-orange-500/50',
         href: '/challenges/2'
@@ -65,7 +65,7 @@ export default function HomePage() {
         const recResponse = await fetch('/api/ai/recommendations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ goals: '次のテストで90点以上取る' }),
+          body: JSON.stringify({ goals: '次のチE��トで90点以上取めE }),
         });
         if (!recResponse.ok) throw new Error('Failed to fetch recommendation');
         const recData = await recResponse.json();
@@ -73,7 +73,7 @@ export default function HomePage() {
         const firstLine = learningPath.split('\n')[0].replace(/^- /, '').replace(/\*/g, '');
         setRecommendation({
           aiCommand: learningPath,
-          taskTitle: firstLine || 'AIのおすすめ学習',
+          taskTitle: firstLine || 'AIのおすすめ学翁E,
           taskUrl: '/learn-top',
         });
 
@@ -81,35 +81,35 @@ export default function HomePage() {
         const reviewResponse = await fetch('/api/ai/review-schedule');
         if (!reviewResponse.ok) throw new Error('Failed to fetch review schedule');
         const reviewData = await reviewResponse.json();
-        const firstReviewSubject = reviewData.scheduledQuestions?.[0]?.subject || 'review';
+        const firstReviewSubject = reviewData.scheduledQuestions?.[0]?.subject || 'math-quad-1';
 
         // Generate dynamic QuickStart items
         const dynamicQuickStartItems: QuickStartItem[] = [
           {
             iconName: 'history',
             iconColorClass: 'text-blue-400',
-            title: '復習する',
+            title: '復習すめE,
             badge: { text: 'AIのおすすめ', colorClass: 'bg-green-500' },
-            href: `/learn/${firstReviewSubject}`, // Dynamic link
+            href: `/learn/${firstReviewSubject}/summary`, // Dynamic link
           },
           {
             iconName: 'school',
             iconColorClass: 'text-orange-400',
-            title: '新しい単元へ',
+            title: '新しい単�Eへ',
             href: '/learn-top',
           },
           {
             iconName: 'quiz',
             iconColorClass: 'text-purple-400',
-            title: 'テスト対策',
-            badge: { text: '人気', colorClass: 'bg-red-500' },
+            title: 'チE��ト対筁E,
+            badge: { text: '人氁E, colorClass: 'bg-red-500' },
             href: '/challenges/test-prep',
           },
           {
             iconName: 'lightbulb',
             iconColorClass: 'text-teal-400',
-            title: '苦手克服',
-            href: `/learn/${firstReviewSubject}`, // Also point to the weak subject
+            title: '苦手�E朁E,
+            href: `/learn/${firstReviewSubject}/summary`, // Also point to the weak subject
           },
         ];
         setQuickStartItems(dynamicQuickStartItems);
@@ -118,13 +118,13 @@ export default function HomePage() {
         console.error(error);
         // Set fallback data on error
         setRecommendation({
-          aiCommand: 'AIからの提案の取得に失敗しました。',
-          taskTitle: '新しい単元を学習する',
+          aiCommand: 'AIからの提案�E取得に失敗しました、E,
+          taskTitle: '新しい単�Eを学習すめE,
           taskUrl: '/learn-top',
         });
         setQuickStartItems([
-          { iconName: 'history', title: '復習する', href: '/learn/review', iconColorClass: 'text-blue-400' },
-          { iconName: 'school', title: '新しい単元へ', href: '/learn-top', iconColorClass: 'text-orange-400' }
+          { iconName: 'history', title: '復習すめE, href: '/learn/review', iconColorClass: 'text-blue-400' },
+          { iconName: 'school', title: '新しい単�Eへ', href: '/learn-top', iconColorClass: 'text-orange-400' }
         ]);
       } finally {
         setIsLoading(false);
@@ -171,3 +171,6 @@ export default function HomePage() {
     </div>
   );
 }
+
+
+

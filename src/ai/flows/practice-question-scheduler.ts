@@ -57,9 +57,9 @@ export async function getReviewScheduleForUser(userId: string): Promise<Schedule
 
     if (attempts.length < 5) {
         return { scheduledQuestions: [{
-            subject: 'General',
-            question: 'まずはクイズを5問以上解いて、あなたのための復習プランを作りましょう！',
-            answer: '頑張ってください！'
+            subject: 'math-quad-1',
+            question: 'まず�EクイズめE問以上解ぁE��、あなた�Eための復習�Eランを作りましょぁE��E,
+            answer: '頑張ってください�E�E
         }] };
     }
 
@@ -148,3 +148,4 @@ const schedulePracticeQuestionsFlow = ai.defineFlow(
     return output!;
   }
 );
+
