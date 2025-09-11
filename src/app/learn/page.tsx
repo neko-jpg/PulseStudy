@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { CheckCircle2, XCircle, HelpCircle, Lightbulb, Bot } from 'lucide-react'
 import type { ModuleDoc } from '@/lib/types'
 import { useLearnStore } from '@/store/learn'
@@ -13,6 +14,7 @@ import { track, trackStepView, trackSubmit } from '@/lib/analytics'
 import { enqueue, flush, setupFlushListeners } from '@/lib/quizQueue'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { getPersonalizedFeedback } from '@/ai/flows/personalized-feedback-on-mistakes'
 
 export default function LearnPage() {
   const router = useRouter()
@@ -24,6 +26,8 @@ export default function LearnPage() {
   const [error, setError] = useState<string | null>(null)
   const [showHint, setShowHint] = useState(false)
   const [startTime, setStartTime] = useState<number | null>(null)
+  const [aiFeedback, setAiFeedback] = useState<string | null>(null)
+  const [isAiFeedbackLoading, setIsAiFeedbackLoading] = useState(false)
 
   const {
     moduleId,
@@ -135,8 +139,29 @@ export default function LearnPage() {
       toast({ description: '送信に失敗しました。後で再送します。' })
       enqueue({ moduleId, idx, selected, correct: isCorrect, ts: Date.now() })
     }
-    markResult(isCorrect ? 1 : 0)
+    markResult(isCorrect, { question: item.q, selectedAnswer: item.choices[selected], correctAnswer: item.choices[item.answer] })
     trackSubmit(moduleId, idx, isCorrect)
+
+    if (!isCorrect) {
+      setIsAiFeedbackLoading(true)
+      setAiFeedback(null)
+      try {
+        const feedbackResult = await getPersonalizedFeedback({
+          question: item.q,
+          userAnswer: item.choices[selected],
+          subject: doc.subject,
+          difficulty: 'medium', // Placeholder
+          hintsUsed: 0, // Placeholder
+        })
+        setAiFeedback(feedbackResult.feedback)
+      } catch (e) {
+        console.error("AI feedback failed:", e)
+        setAiFeedback("AIフィードバックの生成に失敗しました。")
+      } finally {
+        setIsAiFeedbackLoading(false)
+      }
+    }
+
     setSubmitting(false)
     setStep('result')
   }
@@ -261,6 +286,27 @@ export default function LearnPage() {
             </h4>
             <p className="text-muted-foreground">{item.exp}</p>
           </div>
+        )}
+
+        {isAiFeedbackLoading && (
+          <Alert className="mb-8">
+            <Bot className="h-4 w-4" />
+            <AlertTitle>AIがフィードバックを生成中...</AlertTitle>
+            <AlertDescription>
+              <Skeleton className="h-4 w-full mt-2" />
+              <Skeleton className="h-4 w-2/3 mt-2" />
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {aiFeedback && !isAiFeedbackLoading && (
+           <Alert className="mb-8">
+             <Bot className="h-4 w-4" />
+             <AlertTitle>AIからのアドバイス</AlertTitle>
+             <AlertDescription>
+              {aiFeedback}
+             </AlertDescription>
+           </Alert>
         )}
 
         <div className="flex justify-end items-center space-x-4">
