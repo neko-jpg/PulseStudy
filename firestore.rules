@@ -15,6 +15,7 @@ service cloud.firestore {
     }
 
     // Users can create and read their own event logs.
+    // Events are append-only and cannot be modified or deleted.
     match /events/{uid}/items/{id} {
       allow create: if isOwner(uid);
       allow read: if isOwner(uid);
@@ -26,33 +27,16 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
     }
 
-    // Collaboration rooms
+    // Collaboration rooms are public to read for the demo,
+    // but only signed-in users can write.
     match /rooms/{roomId} {
       allow read: if true;
-      // Allow signed-in users to update room metadata (like lastStrokeSeq)
-      allow update: if isSignedIn();
-      // Only signed-in users can create rooms (handled by API security)
-      allow create: if isSignedIn();
+      allow write: if isSignedIn();
+    }
 
-      // Strokes subcollection
-      match /strokes/{seq} {
-        allow read: if true;
-        // Allow signed-in users to create valid strokes
-        allow create: if isSignedIn()
-                      && request.resource.data.seq is int
-                      && request.resource.data.points.size() > 0;
-        // Strokes are immutable
-        allow update, delete: if false;
-      }
-
-      // Presence subcollection
-      match /presence/{uid} {
-        allow read: if true;
-        // Users can only write to their own presence document
-        allow write: if isOwner(uid);
-      }
-
-      // TODO: Add rules for other subcollections like shapes, texts, notes
+    // Subcollections under rooms, like strokes, follow the same write rule.
+    match /rooms/{roomId}/{subcollection}/{docId} {
+        allow write: if isSignedIn();
     }
 
     // Public configuration is read-only for everyone.

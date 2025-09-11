@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { LearnState, Step } from '@/lib/types'
+import type { LearnState, Step, Mistake } from '@/lib/types'
 
 type Actions = {
   init: (moduleId: string, initialStep?: Step) => void
@@ -9,11 +9,11 @@ type Actions = {
   toggleExplain: () => void
   setStep: (s: Step) => void
   reset: () => void
-  markResult: (correctInc: number) => void
+  markResult: (isCorrect: boolean, mistake?: Mistake) => void
   setElapsedTime: (time: number) => void
 }
 
-export const useLearnStore = create<LearnState & Actions>((set) => ({
+const initialState: LearnState = {
   moduleId: 'quad-basic',
   step: 'explain',
   idx: 0,
@@ -23,17 +23,16 @@ export const useLearnStore = create<LearnState & Actions>((set) => ({
   correct: 0,
   total: 0,
   elapsedTime: 0,
+  mistakes: [],
+}
+
+export const useLearnStore = create<LearnState & Actions>((set) => ({
+  ...initialState,
 
   init: (moduleId, initialStep = 'explain') => set({
+    ...initialState,
     moduleId,
     step: initialStep,
-    idx: 0,
-    selected: undefined,
-    submitting: false,
-    showExplain: false,
-    correct: 0,
-    total: 0,
-    elapsedTime: 0
   }),
   nextStep: (totalItems) =>
     set((s) => {
@@ -50,8 +49,12 @@ export const useLearnStore = create<LearnState & Actions>((set) => ({
   setSubmitting: (b) => set({ submitting: b }),
   toggleExplain: () => set((s) => ({ showExplain: !s.showExplain })),
   setStep: (st) => set({ step: st }),
-  reset: () => set({ step: 'explain', idx: 0, selected: undefined, submitting: false, showExplain: false, correct: 0, total: 0, elapsedTime: 0 }),
-  markResult: (c) => set((s) => ({ correct: s.correct + c, total: s.total + 1 })),
+  reset: () => set(initialState),
+  markResult: (isCorrect, mistake) => set((s) => ({
+    correct: s.correct + (isCorrect ? 1 : 0),
+    total: s.total + 1,
+    mistakes: !isCorrect && mistake ? [...s.mistakes, mistake] : s.mistakes,
+  })),
   setElapsedTime: (time) => set({ elapsedTime: time }),
 }))
 
