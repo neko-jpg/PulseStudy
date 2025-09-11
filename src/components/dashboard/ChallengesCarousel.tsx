@@ -27,7 +27,7 @@ function ChallengeCard({ item }: { item: Challenge }) {
   const IconComponent = iconMap[item.iconName];
   return (
     <Link href={item.href} passHref>
-      <div className={`flex-shrink-0 w-72 rounded-xl p-6 flex flex-col justify-between shadow-lg transition-shadow ${item.gradientClass} ${item.shadowClass}`}>
+      <div className={`flex-shrink-0 w-72 rounded-xl p-6 flex flex-col justify-between shadow-lg transition-shadow bg-gradient-to-br ${item.gradientClass} ${item.shadowClass}`}>
         <div>
           <div className="flex justify-between items-start">
             <IconComponent className="h-12 w-12 text-white opacity-80" />

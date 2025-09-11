@@ -97,7 +97,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans JP', sans-serif;
   }
 }
 
@@ -156,5 +155,41 @@
     100% {
       box-shadow: 0 0 0 0 hsla(var(--primary), 0.4);
     }
+  }
+
+  .pulse-animation {
+    animation: pulse-glow 2s infinite ease-in-out;
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 20px 0px rgba(59, 130, 246, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 40px 10px rgba(59, 130, 246, 0.7);
+    }
+  }
+
+  .start-button {
+    transition: all 0.3s ease;
+  }
+
+  .start-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 107, 5, 0.5);
+  }
+
+  .graph-glow {
+    filter: drop-shadow(0 0 8px #f59e0b);
+  }
+
+  .card-carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .card-carousel {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
   }
 }
