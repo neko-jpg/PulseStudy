@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { z } from 'zod';
-
-// This is a placeholder for getting the authenticated user's ID
-// In a real app, this would come from a verified session/token.
-async function getAuthenticatedUserId(request: Request): Promise<string | null> {
-  // Placeholder: In a real app, you'd verify a JWT from the Authorization header.
-  return 'test-user-id-001'; // MOCK USER ID
-}
+import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const quizSubmitSchema = z.object({
     moduleId: z.string(),
@@ -17,29 +10,38 @@ const quizSubmitSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const userId = await getAuthenticatedUserId(req);
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // 1) Verify Firebase ID token or allow dev fallback
+  let userId: string | null = null;
+  try {
+    const authHeader = req.headers.get('Authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : '';
+    if (token) {
+      const adminAuth = getAdminAuth();
+      const decoded = await adminAuth.verifyIdToken(token);
+      userId = decoded.uid;
+    } else if (process.env.NODE_ENV !== 'production') {
+      // Dev-mode fallback for hackathon/testing
+      userId = req.headers.get('x-dev-uid') || new URL(req.url).searchParams.get('devUid');
+    }
+  } catch (e) {
+    console.error('verifyIdToken failed', e);
   }
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const body = await req.json();
     const data = quizSubmitSchema.parse(body);
 
     const attemptData = {
-        userId,
-        moduleId: data.moduleId,
-        questionId: `${data.moduleId}-${data.idx}`, // Create a unique question ID
-        isCorrect: data.correct,
-        submittedAt: serverTimestamp(),
+      moduleId: data.moduleId,
+      questionId: `${data.moduleId}-${data.idx}`,
+      isCorrect: data.correct,
+      submittedAt: FieldValue.serverTimestamp(),
     };
 
-    // Save the quiz attempt to a new subcollection
-    await addDoc(collection(db, 'quiz_attempts'), attemptData);
-
-    // Also consider saving under a user-specific subcollection for easier querying
-    // e.g., collection(db, `users/${userId}/quiz_attempts`)
-    // For now, a root collection is simpler for this task.
+    // Save to user-specific subcollection per new rules
+    const adminDb = getAdminDb();
+    await adminDb.collection(`users/${userId}/quiz_attempts`).add(attemptData);
 
     return NextResponse.json({ ok: true });
   } catch (e) {

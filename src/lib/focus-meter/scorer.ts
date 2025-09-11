@@ -41,9 +41,8 @@ export function calculateScore(features: FocusFeatures, config: FocusConfig): nu
 
   // 2. Calculate expression score (based on brow down)
   // We assume browDown is 0-1, where 1 is max furrowing.
-  // High brow furrow can indicate concentration or confusion, so we treat it as a slight negative.
-  // A simple model: score is 1 minus the browDown value.
-  const expressionScore = 1 - features.browDown;
+  // Per product spec: furrowing indicates concentration, so higher browDown should increase score.
+  const expressionScore = features.browDown;
 
   // 3. Calculate gaze score (currently a placeholder)
   // We assume gazeDev will be 0-1, where 1 is max deviation from center.

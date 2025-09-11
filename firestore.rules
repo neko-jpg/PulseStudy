@@ -1,48 +1,30 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    function isOwner(uid) {
-      return request.auth.uid == uid;
+
+    // --- 推奨する新しいルール ---
+    // /users/{userId} 以下に、各ユーザーのデータを保存する
+
+    // ユーザー本人のみ、自分のドキュメント以下の情報（例: quiz_attempts）を読み書きできる
+    match /users/{userId}/{documents=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Users can only read and write their own profile data.
-    match /users/{uid} {
-      allow read, write: if isOwner(uid);
+    // --- 既存のAPI (/api/quiz/submit) が使っているコレクションに対するルール ---
+    // このままではセキュアではないため、将来的には上記 users サブコレクションへの移行を推奨します。
+    // ひとまず、ログインしているユーザーであれば誰でも書き込み可能にしています。
+    match /quiz_attempts/{attemptId} {
+      allow create: if request.auth != null;
+      // 誰の解答履歴も見られないように、readは拒否
+      allow read, update, delete: if false;
     }
 
-    // Users can create and read their own event logs.
-    // Events are append-only and cannot be modified or deleted.
-    match /events/{uid}/items/{id} {
-      allow create: if isOwner(uid);
-      allow read: if isOwner(uid);
-      allow update, delete: if false;
-    }
-
-    // Users can read and write their own session data.
-    match /sessions/{uid}/items/{id} {
-      allow read, write: if isOwner(uid);
-    }
-
-    // Collaboration rooms are public to read for the demo,
-    // but only signed-in users can write.
-    match /rooms/{roomId} {
+    // 他のコレクション（例: modules）へのアクセスルールも必要に応じて追加してください。
+    // 例えば、学習モジュールは誰でも読み取り可能にする場合：
+    match /modules/{moduleId} {
       allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    // Subcollections under rooms, like strokes, follow the same write rule.
-    match /rooms/{roomId}/{subcollection}/{docId} {
-        allow write: if isSignedIn();
-    }
-
-    // Public configuration is read-only for everyone.
-    match /configs/{doc} {
-      allow read: if true;
-      allow write: if false;
+      allow write: if false; // クライアントからの書き込みは禁止
     }
   }
 }
