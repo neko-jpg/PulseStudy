@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, serverTimestamp, query as fsQuery, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { z } from 'zod';
 import { listRooms, createRoomEphemeral } from './state';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 // Note: In a real app, you'd get the user's UID from an auth session.
 // For now, we'll require it in the request body.
@@ -65,10 +67,19 @@ export async function GET() {
       }))
       return NextResponse.json(rooms, { headers: { 'Cache-Control': 'no-store' } })
     }
-    const q = collection(db as any, 'rooms')
-    const querySnapshot = await getDocs(q as any)
-    const rooms = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }))
-    return NextResponse.json(rooms)
+    // Prefer server (admin) for reliable filtering and to avoid rules pitfalls
+    try {
+      const adb = getAdminDb()
+      const snap = await adb.collection('rooms').where('isPublic', '==', true).get()
+      const rooms = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }))
+      return NextResponse.json(rooms, { headers: { 'Cache-Control': 'no-store' } })
+    } catch {
+      // Fallback to client SDK with explicit isPublic filter (requires rules to allow read)
+      const q = fsQuery(collection(db as any, 'rooms') as any, where('isPublic', '==', true) as any)
+      const querySnapshot = await getDocs(q as any)
+      const rooms = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }))
+      return NextResponse.json(rooms, { headers: { 'Cache-Control': 'no-store' } })
+    }
   } catch (error) {
     console.error('Error fetching rooms:', error)
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 })
@@ -88,10 +99,24 @@ export async function POST(request: Request) {
       const { id } = createRoomEphemeral({ name: data.name, description: data.description, isPublic: data.isPublic })
       return NextResponse.json({ id, name: data.name, isPublic: data.isPublic }, { status: 201 })
     }
-    // Firestore path with naive auth-less create (hackathon-friendly)
-    const newRoomData = Object.assign({}, data as any, { createdAt: serverTimestamp(), updatedAt: serverTimestamp(), members: [] })
-    const docRef = await addDoc(collection(db as any, 'rooms') as any, newRoomData as any)
-    return NextResponse.json({ id: docRef.id, ...newRoomData }, { status: 201 })
+    // Prefer Admin SDK; on failure, fall back to in-memory room to keep UX unblocked
+    try {
+      const adb = getAdminDb()
+      const newRoomData = {
+        name: data.name,
+        description: data.description || '',
+        isPublic: data.isPublic,
+        members: [] as string[],
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }
+      const docRef = await adb.collection('rooms').add(newRoomData)
+      return NextResponse.json({ id: docRef.id, ...newRoomData }, { status: 201 })
+    } catch (e) {
+      // Admin init or write failed; create ephemeral room as a safe fallback
+      const { id } = createRoomEphemeral({ name: data.name, description: data.description, isPublic: data.isPublic })
+      return NextResponse.json({ id, name: data.name, isPublic: data.isPublic, source: 'ephemeral' }, { status: 201 })
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ errors: error.errors }, { status: 400 })

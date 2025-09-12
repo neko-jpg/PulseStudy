@@ -30,25 +30,28 @@ export function enqueue(attempt: Attempt) {
   write(arr)
 }
 
+export function clearAll() { write([]) }
+
 export async function flush() {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return
   const arr = read()
   if (!arr.length) return
-  const remain: Attempt[] = []
-  for (const a of arr) {
+  const chunk = (xs: Attempt[], n: number) => xs.length <= n ? [xs] : Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i*n, (i+1)*n))
+  const batches = chunk(arr, 400) // keep margin for Firestore batch limits
+  for (const items of batches) {
     try {
-      const res = await fetch('/api/quiz/submit', {
+      const res = await fetch('/api/analytics/attempts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(a),
+        body: JSON.stringify({ items }),
       })
-      if (!res.ok) throw new Error('fail')
+      if (!res.ok) throw new Error('attempts_batch_failed')
     } catch {
-      remain.push(a)
+      // Stop on first failure; keep remaining for next retry
+      return
     }
-    // Write back after each item to minimize duplication on crashes
-    write(remain)
   }
+  clearAll()
 }
 
 export function setupFlushListeners() {

@@ -11,8 +11,23 @@ function ensureAdmin() {
 
     // Prefer explicit service account if provided; else fall back to ADC
     if (projectId && clientEmail && privateKeyRaw) {
-      const privateKey = privateKeyRaw.replace(/\\n/g, '\n')
-      initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) })
+      // Normalize PEM: support values copied as "\n" or "\\n" and trim stray quotes/CRLFs
+      let pk = privateKeyRaw.trim()
+      if ((pk.startsWith("\"") && pk.endsWith("\"")) || (pk.startsWith("'") && pk.endsWith("'"))) {
+        pk = pk.slice(1, -1)
+      }
+      pk = pk
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\n')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+      try {
+        initializeApp({ credential: cert({ projectId, clientEmail, privateKey: pk }) })
+      } catch (e) {
+        // Fall back to ADC if PEM failed to parse
+        initializeApp({ credential: applicationDefault() })
+      }
     } else {
       initializeApp({ credential: applicationDefault() })
     }
@@ -28,4 +43,3 @@ export function getAdminDb() {
   ensureAdmin()
   return getFirestore()
 }
-

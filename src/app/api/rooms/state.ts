@@ -20,7 +20,7 @@ function ensureStore(): Map<string, RoomSession> {
   return globalThis.__roomState;
 }
 
-function seedRoom(id: string): RoomSession {
+export function seedRoom(id: string): RoomSession {
   return {
     id,
     name: '公開デモルーム',
@@ -40,7 +40,8 @@ function seedRoom(id: string): RoomSession {
 export function getRoom(id: string): RoomSession | undefined {
   const store = ensureStore();
   if (!store.has(id)) {
-      store.set(id, seedRoom(id));
+    // Avoid overwriting if another concurrent call seeded meanwhile
+    store.set(id, store.get(id) ?? seedRoom(id));
   }
   return store.get(id);
 }
@@ -197,4 +198,10 @@ export function addStampForUser(id: string, type: StampType, userId: string) {
   if (now - last < 1000) return; // throttle per-user
   room.lastStampAt[userId] = now;
   room.stamps[type] = (room.stamps[type] || 0) + 1;
+}
+
+// Peek without creating a new in-memory room (used by server handlers)
+export function peekRoom(id: string): RoomSession | undefined {
+  const store = (globalThis as any).__roomState as Map<string, RoomSession> | undefined
+  return store?.get(id)
 }

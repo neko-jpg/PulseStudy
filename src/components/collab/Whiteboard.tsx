@@ -179,7 +179,9 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
         for (const key of Object.keys(live||{})){
           const it = (live as any)[key]
           if (!it) continue
-          map[key] = { color: it.color, size: it.size, points: Array.isArray(it.points)? it.points.filter(Boolean): [] }
+          const safeColor = (typeof it.color === 'string' && it.color) ? it.color : '#111827'
+          const safeSize = Number.isFinite(Number(it.size)) ? Number(it.size) : 2
+          map[key] = { color: safeColor, size: safeSize, points: Array.isArray(it.points)? it.points.filter(Boolean): [] }
         }
         liveStrokesRef.current = map
         // cursors

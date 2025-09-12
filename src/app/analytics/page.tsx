@@ -7,17 +7,18 @@ import NewSummaryCards from '@/components/analytics/NewSummaryCards';
 import NewHeatmap from '@/components/analytics/NewHeatmap';
 import NewTopImprovements from '@/components/analytics/NewTopImprovements';
 import { useNoStoreFetch } from '@/hooks/useNoStoreFetch';
-type SummaryResp = { summary?: { mins: number; acc: number }; heatmap?: Array<{ date: string; value: number }> }
+type SummaryResp = { summary?: { mins: number; acc: number; avgFocus?: number }; heatmap?: Array<{ date: string; value: number }> }
 
 export default function AnalyticsPage() {
   const { data, loading, error, retry } = useNoStoreFetch<SummaryResp>('/api/analytics/summary', { timeoutMs: 5000 })
   const mins = data?.summary?.mins ?? 0
-  const acc = data?.summary?.acc ?? 0
+  const acc = (data?.summary?.acc ?? 0) * 100
+  const avg = data?.summary?.avgFocus ?? 0
 
   return (
     <main className="main-content flex-1 p-8">
       <NewAnalyticsHeader />
-      <NewSummaryCards isLoading={loading} totalStudyMinutes={mins} averageFocus={acc*100} />
+      <NewSummaryCards isLoading={loading} totalStudyMinutes={mins} averageFocus={avg} accuracy={acc} />
       <NewHeatmap items={data?.heatmap ?? []} />
       <NewTopImprovements />
       {error && (

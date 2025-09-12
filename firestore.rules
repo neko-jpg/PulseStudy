@@ -38,5 +38,16 @@ service cloud.firestore {
     match /rooms/{roomId} {
       allow read, write: if false;
     }
+    // Rooms: public read-only; server-only writes
+    match /rooms/{roomId} {
+      allow read: if resource.data.isPublic == true;
+      allow create, update, delete: if false;
+    }
+
+    // Attempts: user-only read; server-only writes
+    match /attempts/{uid}/items/{id} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update, delete: if false;
+    }
   }
 }

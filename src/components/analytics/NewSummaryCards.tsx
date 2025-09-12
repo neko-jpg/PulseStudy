@@ -35,6 +35,7 @@ interface NewSummaryCardsProps {
   isLoading: boolean;
   totalStudyMinutes: number;
   averageFocus: number;
+  accuracy: number; // percentage 0-100
 }
 
 // Helper function to get grade and color based on focus score
@@ -48,7 +49,7 @@ const getFocusGrade = (score: number) => {
     return { grade: 'D', colorClass: 'text-red-500' };
 }
 
-export default function NewSummaryCards({ isLoading, totalStudyMinutes, averageFocus }: NewSummaryCardsProps) {
+export default function NewSummaryCards({ isLoading, totalStudyMinutes, averageFocus, accuracy }: NewSummaryCardsProps) {
   if (isLoading) {
     return (
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -73,7 +74,7 @@ export default function NewSummaryCards({ isLoading, totalStudyMinutes, averageF
       />
       <SummaryCard
         title="正答率"
-        value={78} // Placeholder as per original design
+        value={Math.round(Number.isFinite(accuracy) ? accuracy : 0)}
         unit="%"
         icon={<CheckCircle2 className="text-green-400 h-6 w-6" />}
       />
