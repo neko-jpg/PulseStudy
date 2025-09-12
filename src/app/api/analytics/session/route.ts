@@ -3,6 +3,12 @@ import { z } from 'zod'
 import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin'
 import { FieldValue } from 'firebase-admin/firestore'
 
+// In-memory demo state (shared per process, non-persistent)
+type DemoState = { lastAvgFocus?: number }
+// @ts-ignore - attach on globalThis lazily without widening types elsewhere
+const __state = (globalThis as any).__DEMO_STATE__ || ((globalThis as any).__DEMO_STATE__ = {})
+const demoState: DemoState = __state as DemoState
+
 const sessionSchema = z.object({
   sessionId: z.string().min(8),
   moduleId: z.string().nullable().optional(),
@@ -17,6 +23,22 @@ const sessionSchema = z.object({
 })
 
 export async function POST(req: Request) {
+  // DEMO: accept and record avgFocus without auth/DB
+  if (process.env.NEXT_PUBLIC_DEMO === '1') {
+    try {
+      const body = await req.json()
+      const input = sessionSchema.partial({ ownerUid: true }).parse(body)
+      if (Number.isFinite(input.avgFocus)) {
+        demoState.lastAvgFocus = Number(input.avgFocus)
+      }
+      // Optionally accumulate minutes/focus if needed later
+      return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } })
+    } catch (e) {
+      // be permissive in demo
+      return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } })
+    }
+  }
+
   // 1) Authenticate via Firebase ID token; allow dev fallback
   let uid: string | null = null
   try {
@@ -67,4 +89,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'internal_error' }, { status: 500 })
   }
 }
-

@@ -70,13 +70,12 @@ const useSessionStore = create<SessionState>((set, get) => ({
   countFocus: 0,
 
   startSession: (moduleId) => {
-    // Check for camera consent before starting
+    // Check for camera consent before starting (skip in demo mode for smoothness)
+    const demo = process.env.NEXT_PUBLIC_DEMO === '1'
     const { cameraConsent, setCameraConsent } = usePrivacyStore.getState();
-    if (cameraConsent !== 'granted') {
+    if (!demo && cameraConsent !== 'granted') {
       console.warn("Camera consent not granted. Session cannot start.");
-      // Ensure the prompt is shown to the user if they try to start a session without deciding
       if (cameraConsent === 'prompt') {
-        // This is a bit of a hack, but ensures the modal logic is triggered
         setCameraConsent('prompt');
       }
       return;
@@ -138,7 +137,17 @@ const useSessionStore = create<SessionState>((set, get) => ({
     }
 
     const avgFocusRaw = countFocus > 0 ? sumFocus / countFocus : 0;
-    const avgFocus = Math.round(Math.min(100, Math.max(0, avgFocusRaw)));
+    const avgFocus = Math.round(Math.min(100, Math.max(0, avgFocusRaw * 100)));
+
+    // Persist latest focus locally for demo/summary to pick up immediately
+    try {
+      if (typeof document !== 'undefined') {
+        document.cookie = `lastAvgFocus=${encodeURIComponent(String(avgFocus))}; path=/; max-age=${60*60*24*7}`
+      }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('lastAvgFocus', String(avgFocus))
+      }
+    } catch {}
 
     // Prepare API payload (safe JSON)
     const payload = {
@@ -162,6 +171,16 @@ const useSessionStore = create<SessionState>((set, get) => ({
         if (token) authHeader = { Authorization: `Bearer ${token}` }
       } catch {}
 
+      // Try sendBeacon first for reliability on navigation, then fetch
+      try {
+        const json = JSON.stringify(payload)
+        const url = '/api/analytics/session'
+        if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+          const blob = new Blob([json], { type: 'application/json' })
+          ;(navigator as any).sendBeacon(url, blob)
+        }
+      } catch {}
+
       const res = await fetch('/api/analytics/session', {
         method: 'POST',
         headers: {
@@ -171,6 +190,7 @@ const useSessionStore = create<SessionState>((set, get) => ({
           ...authHeader,
         },
         body: JSON.stringify(payload),
+        keepalive: true,
       })
 
       if (!res.ok) {

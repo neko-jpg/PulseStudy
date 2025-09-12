@@ -1,6 +1,44 @@
 import { NextResponse } from 'next/server'
 import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin'
 
+// In-memory demo state shared across routes (non-persistent)
+type DemoState = { lastAvgFocus?: number }
+// @ts-ignore - attach on globalThis lazily without widening types elsewhere
+const __state = (globalThis as any).__DEMO_STATE__ || ((globalThis as any).__DEMO_STATE__ = {})
+const demoState: DemoState = __state as DemoState
+
+function readCookie(req: Request, name: string): string | null {
+  try {
+    const raw = req.headers.get('cookie') || ''
+    const m = raw.split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='))
+    return m ? decodeURIComponent(m.split('=')[1] || '') : null
+  } catch { return null }
+}
+
+function buildDemoHeatmapAndSummary(req?: Request) {
+  const today = new Date()
+  const heatmap = Array.from({ length: 28 }, (_, i) => {
+    const d = new Date(today); d.setDate(today.getDate() - (27 - i))
+    const iso = new Date(d.getTime() + 9*3600*1000).toISOString().slice(0,10) // JST date key
+    // Pseudo distribution with waves for nicer visuals
+    const value = Math.max(0, Math.round(20 + 40 * Math.sin(i/4) + (Math.random()*10-5)))
+    return { date: iso, value }
+  })
+  // Prefer cookie → in-memory (cookie is most reliable across runtimes)
+  let measured: number | null = null
+  const c = req ? readCookie(req, 'lastAvgFocus') : null
+  if (c != null && c !== '') {
+    const n = Number(c)
+    if (Number.isFinite(n)) measured = n
+  }
+  if (measured == null && Number.isFinite(demoState.lastAvgFocus)) measured = Number(demoState.lastAvgFocus)
+  const avgFocus = measured != null ? Math.max(0, Math.min(100, Math.round(measured))) : 73
+  return {
+    summary: { mins: 420, acc: 0.82, avgFocus },
+    heatmap,
+  }
+}
+
 export async function GET(req: Request) {
   try {
     // Identify user: prefer Authorization; allow dev header or query in non-prod
@@ -14,12 +52,10 @@ export async function GET(req: Request) {
       uid = req.headers.get('x-dev-uid') || new URL(req.url).searchParams.get('devUid') || 'demo-uid'
     }
 
-    // If no uid, return safe empty
-    if (!uid) {
-      return NextResponse.json({
-        summary: { mins: 0, acc: 0.0, avgFocus: 0 },
-        heatmap: [],
-      }, { headers: { 'Cache-Control': 'no-store' } })
+    // DEMO: Short-circuit with mock data when demo flag is on or uid missing
+    if (process.env.NEXT_PUBLIC_DEMO === '1' || !uid) {
+      const payload = buildDemoHeatmapAndSummary(req)
+      return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } })
     }
 
     const db = getAdminDb()
@@ -83,6 +119,10 @@ export async function GET(req: Request) {
     }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.error('analytics_summary_error', e)
+    if (process.env.NEXT_PUBLIC_DEMO === '1') {
+      const payload = buildDemoHeatmapAndSummary(req)
+      return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } })
+    }
     return NextResponse.json({
       summary: { mins: 0, acc: 0.0, avgFocus: 0 },
       heatmap: [],

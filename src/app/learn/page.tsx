@@ -19,6 +19,13 @@ import { useFocusAdaptive } from '@/hooks/useFocusAdaptive'
 export default function LearnPage() {
   const router = useRouter()
   const params = useSearchParams()
+  // Demo-safe default subject fallback to avoid dead-ends
+  useEffect(() => {
+    try {
+      const sid = params.get('subjectId')
+      if (!sid) router.replace('/learn?subjectId=math-ii')
+    } catch {}
+  }, [params, router])
   const moduleParam = params.get('module') || 'quad-basic'
   const roomParam = params.get('room') || ''
   const { doc, loading, error } = useQuizModule(moduleParam)

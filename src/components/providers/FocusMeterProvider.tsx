@@ -40,6 +40,9 @@ export function FocusMeterProvider({ children, config: userConfig }: FocusMeterP
     currentState: 'paused' as FocusState,
   });
 
+  // Aggregate focus while running to reflect in Analytics even outside Learn sessions
+  const aggRef = useRef<{ sum: number; count: number; active: boolean }>({ sum: 0, count: 0, active: false });
+
   const config = { ...defaultConfig, ...userConfig };
 
   const stopDetectionLoop = useCallback(() => {
@@ -60,6 +63,35 @@ export function FocusMeterProvider({ children, config: userConfig }: FocusMeterP
 
     pipelineStateRef.current.currentState = 'paused';
     setState('paused');
+
+    // Compute average and persist for demo summary
+    try {
+      const { sum, count, active } = aggRef.current;
+      aggRef.current.active = false;
+      if (active && count > 0) {
+        const avg = Math.round(Math.min(100, Math.max(0, (sum / count) * 100)));
+        if (typeof document !== 'undefined') {
+          document.cookie = `lastAvgFocus=${encodeURIComponent(String(avg))}; path=/; max-age=${60*60*24*7}`;
+        }
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('lastAvgFocus', String(avg));
+        }
+        // Send lightweight beacon to persist in demo memory (survives navigation)
+        try {
+          if (process.env.NEXT_PUBLIC_DEMO === '1') {
+            const payload = { avgFocus: avg, status: 'completed' };
+            const json = JSON.stringify(payload);
+            const url = '/api/analytics/session';
+            if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+              const blob = new Blob([json], { type: 'application/json' });
+              (navigator as any).sendBeacon(url, blob);
+            } else {
+              fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json, keepalive: true }).catch(() => {})
+            }
+          }
+        } catch {}
+      }
+    } catch {}
   }, [setState, stopDetectionLoop]);
 
   const startDetectionLoop = useCallback(async () => {
@@ -113,6 +145,12 @@ export function FocusMeterProvider({ children, config: userConfig }: FocusMeterP
           quality: results.faceLandmarks.length > 0 ? 'high' : 'low', // Simple quality metric for now
           // We can add the features to the store if needed later
         });
+
+        // Aggregate while active (value range 0..1)
+        if (aggRef.current.active && pipelineStateRef.current.currentState !== 'paused') {
+          aggRef.current.sum += stabilizedValue;
+          aggRef.current.count += 1;
+        }
       }
 
       animationFrameRef.current = requestAnimationFrame(detect);
@@ -148,6 +186,8 @@ export function FocusMeterProvider({ children, config: userConfig }: FocusMeterP
             setTimeout(() => {
                 pipelineStateRef.current.currentState = 'active';
                 setState('active');
+                // reset aggregator
+                aggRef.current = { sum: 0, count: 0, active: true };
                 startDetectionLoop();
             }, 500);
         });

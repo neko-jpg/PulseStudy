@@ -51,6 +51,10 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
   const [chatText, setChatText] = useState('')
   const [progress, setProgress] = useState<{ moduleId?: string; idx?: number }>({})
 
+  // Defensive fallbacks for rendering
+  const safeColor = (c?: string) => (typeof c === 'string' && c) ? c : '#111827'
+  const safeSize  = (s?: number) => (typeof s === 'number' && s > 0) ? s : 2
+
   // view transform (pan/zoom)
   const viewRef = useRef<{ scale:number; tx:number; ty:number }>({ scale: 1, tx: 0, ty: 0 })
   const panRef = useRef<{ active:boolean; lastX:number; lastY:number }>({ active:false, lastX:0, lastY:0 })
@@ -497,10 +501,10 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
       }
       drawOverlay((ctx) => {
         if (d.points.length < 2) return;
-        ctx.strokeStyle = d.color;
+        ctx.strokeStyle = safeColor(d.color);
         const lastPressure = drawingRef.current.pressures?.[drawingRef.current.pressures!.length-1] ?? 0.5
         const widthScale = tool==='eraser'? 1 : (0.5 + 0.7 * lastPressure)
-        ctx.lineWidth = d.size * widthScale;
+        ctx.lineWidth = safeSize(d.size) * widthScale;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(d.points[0].x, d.points[0].y);
@@ -516,7 +520,7 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     if (tool==='laser'){ addLaserDot(p.x,p.y); return }
     if (tool==='select' && selectionRef.current){ const sel=selectionRef.current; if (sel.kind==='note'){ const i=sel.idx; if (sel.resize){ setNotes(arr=>arr.map((n,idx)=> idx!==i?n:{...n, w:Math.max(60,p.x-n.x), h:Math.max(40,p.y-n.y)})) } else { setNotes(arr=>arr.map((n,idx)=> idx!==i?n:{...n, x:p.x-sel.ox, y:p.y-sel.oy})) } return } if (sel.kind==='text'){ const i=sel.idx; setTexts(arr=>arr.map((t,idx)=> idx!==i?t:{...t, x:p.x-sel.ox, y:p.y-sel.oy})); return } if (sel.kind==='shape'||sel.kind==='line'){ const i=sel.idx; setShapes(arr=>arr.map((s,idx)=> idx!==i?s:{...s, x:p.x-sel.ox, y:p.y-sel.oy})); return } }
     if (tool==='line'||tool==='rect'){
-      drawOverlay((ctx)=>{ const start=drawingRef.current.shapeStart; if(!start) return; const sx=gridOn?Math.round(start.x/5)*5:start.x; const sy=gridOn?Math.round(start.y/5)*5:start.y; const ex=gridOn?Math.round(p.x/5)*5:p.x; const ey=gridOn?Math.round(p.y/5)*5:p.y; ctx.strokeStyle=color; ctx.lineWidth=size; if (tool==='line'){ ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke() } else { ctx.strokeRect(sx,sy,ex-sx,ey-sy) } })
+      drawOverlay((ctx)=>{ const start=drawingRef.current.shapeStart; if(!start) return; const sx=gridOn?Math.round(start.x/5)*5:start.x; const sy=gridOn?Math.round(start.y/5)*5:start.y; const ex=gridOn?Math.round(p.x/5)*5:p.x; const ey=gridOn?Math.round(p.y/5)*5:p.y; ctx.strokeStyle=safeColor(color); ctx.lineWidth=safeSize(size); if (tool==='line'){ ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke() } else { ctx.strokeRect(sx,sy,ex-sx,ey-sy) } })
       return
     }
     if (tool==='snap' && snapRectRef.current){ const r=snapRectRef.current; r.ex=p.x; r.ey=p.y; drawOverlay((ctx)=>{ ctx.setLineDash([6,4]); ctx.strokeStyle='#111827'; ctx.strokeRect(r.sx,r.sy,r.ex-r.sx,r.ey-r.sy); ctx.setLineDash([]) }); return }
@@ -567,14 +571,14 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     ctx.lineCap='round'
     const all = liveStrokesRef.current
     for (const k of Object.keys(all)){
-      const s=all[k]; const pts=s?.points||[]; if(pts.length<2) continue; ctx.strokeStyle=s.color; ctx.lineWidth=s.size; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for(let i=1;i<pts.length;i++){ const p=pts[i]; if(p) ctx.lineTo(p.x,p.y) } ctx.stroke()
+      const s=all[k]; const pts=s?.points||[]; if(pts.length<2) continue; ctx.strokeStyle=safeColor(s?.color); ctx.lineWidth=safeSize((s as any)?.size); ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for(let i=1;i<pts.length;i++){ const p=pts[i]; if(p) ctx.lineTo(p.x,p.y) } ctx.stroke()
     }
     // cursors
     for (const k of Object.keys(liveCursorsRef.current)){
       const c = liveCursorsRef.current[k]; if(!c) continue
       if (clientIdRef.current && k.startsWith(clientIdRef.current)) continue
       const r = 6
-      ctx.beginPath(); ctx.fillStyle = c.color || '#3b82f6'; ctx.arc(c.x, c.y, r, 0, Math.PI*2); ctx.fill()
+      ctx.beginPath(); ctx.fillStyle = safeColor(c.color) || '#3b82f6'; ctx.arc(c.x, c.y, r, 0, Math.PI*2); ctx.fill()
       ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1; ctx.arc(c.x, c.y, r+1.5, 0, Math.PI*2); ctx.stroke()
     }
     ctx.restore()
