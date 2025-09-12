@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -67,7 +67,7 @@ export function TaskCard({ module, loading, onClick, onImpression }: Props) {
             <div className="flex items-center gap-1"><Timer className="h-4 w-4" /> {module.estMins}分</div>
             <div className="flex items-center gap-1"><BarChart3 className="h-4 w-4" /> {module.questions}問</div>
           </div>
-          <Link href={`/learn?module=${module.moduleId}`} aria-label="このモジュールを始める" onClick={onClick}>
+          <Link href={`/learn/${module.moduleId}/summary`} aria-label="このモジュールを始める" onClick={onClick}>
             <Button variant="secondary" className="w-full" role="button">始める</Button>
           </Link>
         </CardContent>

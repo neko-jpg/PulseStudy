@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { getRoom, joinRoom, validateToken } from '../../../rooms/state'
 import { z } from 'zod'
 
@@ -32,4 +32,3 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const role = room.solverId === me.id ? 'solver' : 'viewer'
   return NextResponse.json({ role, me }, { status: 200 })
 }
-

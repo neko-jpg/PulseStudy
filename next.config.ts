@@ -35,7 +35,7 @@ const nextConfig = {
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "X-Frame-Options", value: "DENY" },
       { key: "X-XSS-Protection", value: "0" },
-      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+      { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
     ];
 
     return [

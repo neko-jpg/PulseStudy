@@ -1,14 +1,8 @@
-'use server';
-/**
- * @fileOverview Provides personalized feedback and hints to users when they get stuck on practice questions.
- *
- * - getPersonalizedFeedback - A function that generates custom feedback for a given question and user answer.
- * - PersonalizedFeedbackInput - The input type for the getPersonalizedFeedback function.
- * - PersonalizedFeedbackOutput - The return type for the getPersonalizedFeedback function.
- */
+﻿'use server';
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { JA_HEADER } from '@/ai/constants';
+import { z } from 'genkit';
 
 const PersonalizedFeedbackInputSchema = z.object({
   question: z.string().describe('The practice question the user is attempting to answer.'),
@@ -30,15 +24,13 @@ export async function getPersonalizedFeedback(input: PersonalizedFeedbackInput):
 
 const prompt = ai.definePrompt({
   name: 'personalizedFeedbackPrompt',
-  input: {schema: PersonalizedFeedbackInputSchema},
-  output: {schema: PersonalizedFeedbackOutputSchema},
-  prompt: `【重要】出力は必ず日本語で行ってください。丁寧語で、短く分かりやすい要点・具体例・次の一手を含めてください。対象は中学生/高校生向けです。
+  input: { schema: PersonalizedFeedbackInputSchema },
+  output: { schema: PersonalizedFeedbackOutputSchema },
+  prompt: `${JA_HEADER}` + `You are an AI tutor that gives short, actionable feedback.
 
-  You are an AI assistant designed to provide personalized feedback and hints to students who are stuck on practice questions.
+  The student is working on a {{subject}} question (difficulty: {{difficulty}}). They already used {{hintsUsed}} hints.
 
-  The student is currently working on a {{subject}} question with difficulty level {{difficulty}}. They have already used {{hintsUsed}} hints.
-
-  Provide feedback based on the student's answer and the question. Focus on helping them understand the underlying concepts and identify any mistakes they made.
+  Based on the question and the student's answer, explain the key point, give one concrete example, and conclude with the next step.
 
   Question: {{{question}}}
   Student's Answer: {{{userAnswer}}}
@@ -52,8 +44,8 @@ const personalizedFeedbackFlow = ai.defineFlow(
     inputSchema: PersonalizedFeedbackInputSchema,
     outputSchema: PersonalizedFeedbackOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
+  async (input) => {
+    const { output } = await prompt(input);
     return output!;
   }
 );

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -41,34 +41,41 @@ export function CollabLobby() {
 
   // Fetch rooms in real-time
   useEffect(() => {
-    const q = query(collection(db, "rooms"), where("isPublic", "==", true));
+    if (!db) {
+      setIsLoading(false);
+      setRooms([]);
+      return;
+    }
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const roomsData: Room[] = [];
-      querySnapshot.forEach((doc) => {
-        roomsData.push({ id: doc.id, ...doc.data() } as Room);
-      });
-      setRooms(roomsData);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching rooms: ", error);
-      toast({ variant: "destructive", description: "ルームの取得に失敗しました。" });
-      setIsLoading(false);
-    });
+    const q = query(collection(db, 'rooms'), where('isPublic', '==', true));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const roomsData: Room[] = [];
+        querySnapshot.forEach((doc) => {
+          roomsData.push({ id: doc.id, ...doc.data() } as Room);
+        });
+        setRooms(roomsData);
+        setIsLoading(false);
+      },
+      (error) => {
+        console.error('Error fetching rooms: ', error);
+        toast({ variant: 'destructive', description: 'ルームの取得に失敗しました' });
+        setIsLoading(false);
+      }
+    );
 
     // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [toast]);
 
-
   async function onCreate() {
     try {
-      // In a real app, the POST body would be more detailed
-      // and createdBy would be derived from an auth session.
       const r = await fetch('/api/rooms', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: "新しい学習室", isPublic: true })
+        headers: { 'Content-Type': 'application/json', 'x-dev-uid': 'demo-uid' },
+        body: JSON.stringify({ name: '新しい学習室', isPublic: true }),
       });
       if (!r.ok) throw new Error('Failed to create room');
       const js = await r.json();
@@ -105,7 +112,7 @@ export function CollabLobby() {
     <main className="flex-1 p-4 md:p-8 bg-gray-900 text-white">
       <header className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="text-2xl font-bold">こんばんは、葵さん。</h2>
+          <h2 className="text-2xl font-bold">こんばんは、葵さん</h2>
         </div>
         <button className="relative">
           <Bell className="text-gray-400 text-3xl" />
@@ -124,8 +131,8 @@ export function CollabLobby() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <ActionCard
             icon={PlusCircle}
-            title="ルームを築く"
-            description="自分で新しい学習グループやルームを作成します。"
+            title="ルームを作る"
+            description="自分で新しい学習グループやルームを作成します"
             iconBgClass="bg-blue-500/20"
             iconFgClass="text-blue-400"
             onClick={onCreate}
@@ -136,7 +143,7 @@ export function CollabLobby() {
               <ActionCard
                 icon={LogIn}
                 title="入室する"
-                description="ルームIDや合言葉で特定のルームに参加します。"
+                description="ルームIDや招待URLで特定のルームに参加します"
                 iconBgClass="bg-green-500/20"
                 iconFgClass="text-green-400"
               />

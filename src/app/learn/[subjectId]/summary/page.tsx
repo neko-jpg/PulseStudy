@@ -16,7 +16,7 @@ export default async function SummaryPage({ params }: PageProps) {
   if (!data) {
     try {
       const apiId = toApiId(subjectId)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/modules/${apiId}`, { cache: 'no-store' })
+      const res = await fetch(`/api/modules/${apiId}`, { cache: 'no-store' })
       if (res.ok) {
         const doc = await res.json()
         const points: string[] = Array.isArray(doc?.explain) && doc.explain.length

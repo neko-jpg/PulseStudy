@@ -17,14 +17,7 @@ export function FocusIndicator() {
   const { value, state } = useFocusStore((s) => s.output);
   const score = Math.round(value * 100);
 
-  // Automatically enable the engine when this component is mounted
-  useEffect(() => {
-    start();
-    // Disable it on unmount
-    return () => {
-      stop();
-    };
-  }, [start, stop]);
+  // 自動開始は行わない（明示操作で開始）
 
 
   const getPulseColor = () => {
