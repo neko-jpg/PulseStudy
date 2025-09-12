@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { startSession } from '@/lib/session';
-import { Bell, Bolt, BookOpen, Users, BarChart3, Home, School, Trophy, MessageCircleQuestion, Lightbulb, Rocket } from 'lucide-react';
+import { Bell, Bolt, BookOpen, Users, BarChart3, Home, School, Trophy, MessageCircleQuestion, Lightbulb, Rocket, Clock, Play } from 'lucide-react';
 
 function Sidebar() {
   return (
@@ -99,7 +99,7 @@ export default function DemoDashboardPage() {
               </div>
             </div>
             <button onClick={() => handleStart('eng-infinitive-1')} className="w-full py-5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-2xl font-bold rounded-xl shadow-lg hover:-translate-y-0.5 transition flex items-center justify-center">
-              <PlayIcon />
+              <Play className="mr-2" />
               学習を始める
             </button>
           </div>
@@ -225,4 +225,3 @@ function StarIcon(props: React.SVGProps<SVGSVGElement>) {
     <svg {...props} xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor"><path d="m12 17.27 6.18 3.73-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
   )
 }
-
