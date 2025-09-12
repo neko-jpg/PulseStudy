@@ -3,28 +3,40 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- 推奨する新しいルール ---
-    // /users/{userId} 以下に、各ユーザーのデータを保存する
-
-    // ユーザー本人のみ、自分のドキュメント以下の情報（例: quiz_attempts）を読み書きできる
-    match /users/{userId}/{documents=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // --- 既存のAPI (/api/quiz/submit) が使っているコレクションに対するルール ---
-    // このままではセキュアではないため、将来的には上記 users サブコレクションへの移行を推奨します。
-    // ひとまず、ログインしているユーザーであれば誰でも書き込み可能にしています。
-    match /quiz_attempts/{attemptId} {
-      allow create: if request.auth != null;
-      // 誰の解答履歴も見られないように、readは拒否
-      allow read, update, delete: if false;
-    }
-
-    // 他のコレクション（例: modules）へのアクセスルールも必要に応じて追加してください。
-    // 例えば、学習モジュールは誰でも読み取り可能にする場合：
+    // 公開教材は誰でも読める（書き込み禁止）
     match /modules/{moduleId} {
       allow read: if true;
-      allow write: if false; // クライアントからの書き込みは禁止
+      allow write: if false;
+    }
+
+    // アクティブセッションのハートビート（短命な存在）
+    // クライアントは開始/終了時のみ作成・削除を行う
+    match /active_sessions/{sessionId} {
+      // 認証不要で可: 心拍用途で機微情報なし
+      allow create, delete: if true;
+      allow read, update: if false;
+    }
+
+    // 個人のルートドキュメントは本人のみ
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // クイズ解答履歴は本人のみ閲覧可。書き込みはサーバー(API)経由のみとするため拒否
+    match /users/{uid}/quiz_attempts/{docId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update, delete: if false;
+    }
+
+    // 学習セッションの保存（サーバーのみ書き込み）。本人のみ閲覧可
+    match /sessions/{uid}/items/{sessionId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update, delete: if false;
+    }
+
+    // コラボはまず閉じる（必要になったらAPI経由で）
+    match /rooms/{roomId} {
+      allow read, write: if false;
     }
   }
 }

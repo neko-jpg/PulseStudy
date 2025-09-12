@@ -50,17 +50,14 @@ function extractHeadPose(matrix: Float32Array | undefined): { headPitch: number,
  * @returns The score for the 'browDown' blendshape, or 0 if not found.
  */
 function extractBrowDown(blendshapes: any[] | undefined): number {
-  if (!blendshapes || blendshapes.length === 0) {
-    return 0;
-  }
-  const browDownShape = blendshapes[0].find((shape: any) => shape.categoryName === 'browDown_L' || shape.categoryName === 'browDown_R');
-  const browDownRight = blendshapes[0].find((shape: any) => shape.categoryName === 'browDown_R');
-
-  // Average the left and right brow down scores for a more stable value.
-  const scoreLeft = blendshapes[0].find((s: any) => s.categoryName === 'browDown_L')?.score || 0;
-  const scoreRight = blendshapes[0].find((s: any) => s.categoryName === 'browDown_R')?.score || 0;
-
-  return (scoreLeft + scoreRight) / 2.0;
+  if (!blendshapes || blendshapes.length === 0) return 0;
+  // MediaPipe FaceLandmarker returns [{ categories: [{categoryName, score}, ...] }]
+  const first = blendshapes[0] as any
+  const arr: any[] = Array.isArray(first?.categories) ? first.categories : (Array.isArray(first) ? first : [])
+  if (!Array.isArray(arr) || arr.length === 0) return 0
+  const left = arr.find((s: any) => s?.categoryName === 'browDown_L')?.score || 0
+  const right = arr.find((s: any) => s?.categoryName === 'browDown_R')?.score || 0
+  return (left + right) / 2
 }
 
 /**

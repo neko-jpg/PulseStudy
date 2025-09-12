@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, onSnapshot, DocumentData } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import type { DocumentData } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,35 +38,23 @@ export function CollabLobby() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch rooms in real-time
+  // Fetch rooms via API (Firestoreに依存しない)
   useEffect(() => {
-    if (!db) {
-      setIsLoading(false);
-      setRooms([]);
-      return;
-    }
-
-    const q = query(collection(db, 'rooms'), where('isPublic', '==', true));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const roomsData: Room[] = [];
-        querySnapshot.forEach((doc) => {
-          roomsData.push({ id: doc.id, ...doc.data() } as Room);
-        });
-        setRooms(roomsData);
-        setIsLoading(false);
-      },
-      (error) => {
-        console.error('Error fetching rooms: ', error);
-        toast({ variant: 'destructive', description: 'ルームの取得に失敗しました' });
-        setIsLoading(false);
+    let mounted = true
+    const load = async () => {
+      try {
+        const r = await fetch('/api/rooms', { cache: 'no-store' })
+        if (!r.ok) throw new Error('failed')
+        const js = await r.json()
+        if (mounted) { setRooms(js || []); setIsLoading(false) }
+      } catch (e) {
+        console.error('Error fetching rooms: ', e)
+        if (mounted) { setIsLoading(false) }
       }
-    );
-
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
+    }
+    load()
+    const iv = setInterval(load, 8000)
+    return () => { mounted = false; clearInterval(iv) }
   }, [toast]);
 
   async function onCreate() {
