@@ -1,5 +1,17 @@
 # PulseStudy
 
+## 最短起動（キー無しでも動作）
+
+- 依存をインストール: `npm install`
+- `.env.local` は不要（AI/Firebase キー未設定でも BANK で動作）
+- 起動: `npm run dev`
+
+要点:
+
+- 問題生成は常に `/api/ai/generate-quiz` 経由。`GOOGLE_API_KEY` 未設定時は BANK に自動フォールバック。
+- `/learn/[id]/summary` は未定義 ID でもフォールバック表示（404 なし）。
+- Home/QuickStart の遷移は `/learn/${moduleId}/summary` に統一。
+
 Next.js (App Router) + Tailwind + shadcn/ui の学習アプリ MVP。
 
 主要ルート: `/home`, `/learn`, `/learn-top`, `/challenge`, `/analytics`, `/collab`, `/profile`, `/teacher-dashboard`。

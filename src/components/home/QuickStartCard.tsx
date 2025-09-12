@@ -80,7 +80,7 @@ export function QuickStartCard({ data, loading, error, onRetry, onQuickStart }: 
           <div className="flex items-center gap-1"><Timer className="h-4 w-4" /> {data.estMins}分</div>
           <div className="flex items-center gap-1"><BarChart3 className="h-4 w-4" /> {data.questions}問</div>
         </div>
-        <Link href={`/learn?module=last`} aria-label="続きから始める" onClick={onQuickStart}>
+        <Link href={`/learn/last/summary`} aria-label="続きから始める" onClick={onQuickStart}>
           <Button className="w-full" role="button"><Play className="h-4 w-4 mr-2" /> 続きから始める</Button>
         </Link>
       </CardContent>

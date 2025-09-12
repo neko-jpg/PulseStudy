@@ -9,6 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import { JA_HEADER } from '@/ai/constants';
 import {z} from 'genkit';
 
 const LearningPathInputSchema = z.object({
@@ -113,7 +114,7 @@ const prompt = ai.definePrompt({
   name: 'learningPathPrompt',
   input: {schema: LearningPathInputSchema},
   output: {schema: LearningPathOutputSchema},
-  prompt: `You are an expert learning path generator. You will use the user's performance data and goals to create a tailored learning path.
+  prompt: `${JA_HEADER}` + `You are an expert learning path generator. You will use the user's performance data and goals to create a tailored learning path.
 
 User Performance Data: {{{userPerformanceData}}}
 User Goals: {{{userGoals}}}

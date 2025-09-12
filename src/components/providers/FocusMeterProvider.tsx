@@ -160,6 +160,24 @@ export function FocusMeterProvider({ children, config: userConfig }: FocusMeterP
 
   useEffect(() => () => stop(), [stop]);
 
+  // Freeze updates while tab is hidden (do not drop to 0)
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') {
+        // Pause detection loop only; keep last value
+        try { if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current) } catch {}
+        animationFrameRef.current = null
+      } else {
+        // Resume loop if we have permission and stream
+        if (permission === 'granted') {
+          startDetectionLoop()
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [permission, startDetectionLoop])
+
   const contextValue = { start, stop, setMode: (mode: string) => console.log(`Mode set to ${mode}`), permission };
 
   return (

@@ -61,12 +61,19 @@ export default function LearnPage() {
       try {
         setLoading(true)
         setError(null)
-        const res = await fetch(`/api/modules/${moduleParam}`, { cache: 'no-store', signal: controller.signal })
+        const res = await fetch(`/api/ai/generate-quiz`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ moduleId: moduleParam }),
+          cache: 'no-store',
+          signal: controller.signal,
+        })
         if (!res.ok) {
           if (res.status === 401) return router.push('/login')
           throw new Error('failed')
         }
-        const json: ModuleDoc = await res.json()
+        const payload = await res.json()
+        const json: ModuleDoc = (payload?.doc || payload) as ModuleDoc
         if (!active) return
         setDoc(json)
         init(json.id, 'quiz') // Start directly with the quiz

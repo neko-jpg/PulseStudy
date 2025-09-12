@@ -8,7 +8,14 @@ export function subscribeRoomState(roomId: string, onState: (s: any) => void, op
   // Try SSE first, then fall back to poll with backoff
   if (transport === 'sse' && typeof window !== 'undefined' && 'EventSource' in window) {
     try {
-      const es = new EventSource(`/api/rooms/${roomId}/sse`)
+      let es: EventSource | null = null
+      let reconnectTimer: any = null
+      let retry = 0
+      const maxRetry = 6
+      const baseDelay = 800
+      const maxDelay = 8000
+      let closedByUser = false
+
       let curr: any = null
       const apply = (mut: (s:any)=>void) => { try { if (!curr) return; mut(curr); onState(curr) } catch {} }
       const onSnap = (ev: MessageEvent) => { try { curr = JSON.parse(ev.data); onState(curr) } catch {} }
@@ -42,27 +49,27 @@ export function subscribeRoomState(roomId: string, onState: (s: any) => void, op
           } catch {}
         })
       }
-      const onLiveStart = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); s.live = s.live || { strokes: {}, cursors: {} }; s.live.strokes[js.id] = { id: js.id, clientId: js.clientId, color: js.color, size: js.size, points: [], updatedAt: Date.now() } }) }
+      const onLiveStart = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); s.live = s.live || { strokes: {}, cursors: {} }; const col = (typeof js.color === 'string' && js.color) ? js.color : '#111827'; const sz = (typeof js.size === 'number' && Number.isFinite(js.size)) ? js.size : 2; s.live.strokes[js.id] = { id: js.id, clientId: js.clientId, color: col, size: sz, points: [], updatedAt: Date.now() } }) }
       const onLivePts = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); const st = s.live?.strokes?.[js.strokeId]; if (!st) return; if (typeof js.pts_b64 === 'string' && js.pts_b64.length>0) { try { const bin = atob(js.pts_b64); const len = bin.length; const bytes = new Uint8Array(len); for (let i=0;i<len;i++){ bytes[i] = bin.charCodeAt(i) } const f32 = new Float32Array(bytes.buffer); for (let i=0;i+1<f32.length;i+=2){ const x=f32[i], y=f32[i+1]; if (Number.isFinite(x)&&Number.isFinite(y)) st.points.push({ x, y }) } } catch {} } else if (Array.isArray(js.pts)) { const a:number[] = js.pts; for(let i=0;i+1<a.length;i+=2){ const x=a[i], y=a[i+1]; if(Number.isFinite(x)&&Number.isFinite(y)) st.points.push({ x, y }) } } else { const pts = Array.isArray(js.points) ? js.points : []; for(const p of pts){ if(p&&Number.isFinite(p.x)&&Number.isFinite(p.y)) st.points.push({ x:p.x, y:p.y }) } } st.updatedAt = Date.now() }) }
       const onLiveEnd = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); if (s.live?.strokes) delete s.live.strokes[js.id] }) }
-      const onCursor = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); s.live = s.live || { strokes: {}, cursors: {} }; s.live.cursors = s.live.cursors || {}; s.live.cursors[js.clientId] = { x: js.x, y: js.y, color: js.color, updatedAt: Date.now() } }) }
+      const onCursor = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); s.live = s.live || { strokes: {}, cursors: {} }; s.live.cursors = s.live.cursors || {}; const col = (typeof js.color === 'string' && js.color) ? js.color : '#111827'; const x = Number.isFinite(js.x) ? js.x : 0; const y = Number.isFinite(js.y) ? js.y : 0; s.live.cursors[js.clientId] = { x, y, color: col, updatedAt: Date.now() } }) }
       const onMsg = (ev: MessageEvent) => { try { const js = JSON.parse(ev.data); onState(js) } catch {} }
       let fallbackUnsub: Unsubscribe | null = null
-      const onError = () => {
-        es.close()
-        // Fallback to polling; keep its unsubscribe so we can clean it up if needed
-        if (!fallbackUnsub) fallbackUnsub = subscribeRoomState(roomId, onState, { transport: 'poll' })
+
+      const attach = () => {
+        if (!es) return
+        es.addEventListener('message', onMsg) // compatibility
+        es.addEventListener('snapshot', onSnap as any)
+        es.addEventListener('board', onBoard as any)
+        es.addEventListener('live_start', onLiveStart as any)
+        es.addEventListener('live_points', onLivePts as any)
+        es.addEventListener('live_end', onLiveEnd as any)
+        es.addEventListener('cursor', onCursor as any)
+        es.addEventListener('board_patch', onBoardPatch as any)
+        es.addEventListener('error', onError)
       }
-      es.addEventListener('message', onMsg) // compatibility
-      es.addEventListener('snapshot', onSnap as any)
-      es.addEventListener('board', onBoard as any)
-      es.addEventListener('live_start', onLiveStart as any)
-      es.addEventListener('live_points', onLivePts as any)
-      es.addEventListener('live_end', onLiveEnd as any)
-      es.addEventListener('cursor', onCursor as any)
-      es.addEventListener('board_patch', onBoardPatch as any)
-      es.addEventListener('error', onError)
-      return () => {
+      const detach = () => {
+        if (!es) return
         es.removeEventListener('message', onMsg)
         es.removeEventListener('snapshot', onSnap as any)
         es.removeEventListener('board', onBoard as any)
@@ -72,7 +79,40 @@ export function subscribeRoomState(roomId: string, onState: (s: any) => void, op
         es.removeEventListener('cursor', onCursor as any)
         es.removeEventListener('board_patch', onBoardPatch as any)
         es.removeEventListener('error', onError)
-        try { es.close() } catch {}
+      }
+      const onError = () => {
+        if (closedByUser) return
+        try { if (es) es.close() } catch {}
+        detach()
+        es = null
+        // Try to reconnect with backoff a few times before polling fallback
+        retry += 1
+        const delay = Math.min(maxDelay, Math.round(baseDelay * Math.pow(1.8, retry)))
+        clearTimeout(reconnectTimer)
+        reconnectTimer = setTimeout(() => {
+          if (retry <= maxRetry) {
+            connect()
+          } else if (!fallbackUnsub) {
+            fallbackUnsub = subscribeRoomState(roomId, onState, { transport: 'poll' })
+          }
+        }, delay)
+      }
+      const connect = () => {
+        if (closedByUser) return
+        try {
+          es = new EventSource(`/api/rooms/${roomId}/sse`)
+          retry = 0
+          attach()
+        } catch {
+          onError()
+        }
+      }
+      connect()
+      return () => {
+        closedByUser = true
+        clearTimeout(reconnectTimer)
+        detach()
+        try { if (es) es.close() } catch {}
         if (fallbackUnsub) { try { fallbackUnsub() } catch {} }
       }
     } catch {

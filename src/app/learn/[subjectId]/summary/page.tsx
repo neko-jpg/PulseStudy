@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { notFound } from 'next/navigation'
 import { summaryData } from '@/lib/summary-data'
+import { toApiId } from '@/lib/modules'
 import { Button } from '@/components/ui/button'
 import { HelpCircle, Mic, BookOpen, ChevronLeft } from 'lucide-react'
 
@@ -11,10 +11,38 @@ type PageProps = {
 
 export default async function SummaryPage({ params }: PageProps) {
   const { subjectId } = await params
-  const data = summaryData[subjectId]
-
+  let data = summaryData[subjectId]
+  // Fallback: even for unknown module ids, synthesize a summary from BANK/API
   if (!data) {
-    notFound()
+    try {
+      const apiId = toApiId(subjectId)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/modules/${apiId}`, { cache: 'no-store' })
+      if (res.ok) {
+        const doc = await res.json()
+        const points: string[] = Array.isArray(doc?.explain) && doc.explain.length
+          ? doc.explain
+          : Array.isArray(doc?.items) ? doc.items.slice(0, 5).map((it: any) => String(it?.exp || it?.q || '')) : []
+        data = {
+          title: String(doc?.title || '学習の要点'),
+          subject: String(doc?.subject || ''),
+          progress: '0/1',
+          points: points.filter(Boolean),
+          imageUrl: 'https://images.unsplash.com/photo-1529078155058-5d716f45d604?q=80&w=1200&auto=format&fit=crop',
+          imageAlt: 'Study illustration',
+        }
+      }
+    } catch {}
+    // Final guard
+    if (!data) {
+      data = {
+        title: '学習の要点',
+        subject: '',
+        progress: '0/1',
+        points: ['この単元の要点は準備中です。続行して問題に挑戦できます。'],
+        imageUrl: 'https://images.unsplash.com/photo-1529078155058-5d716f45d604?q=80&w=1200&auto=format&fit=crop',
+        imageAlt: 'Study illustration',
+      }
+    }
   }
 
   const { title, subject, progress, points, imageUrl, imageAlt } = data
