@@ -18,11 +18,14 @@ const nextConfig = {
       "media-src 'self' data: blob:",
       "font-src 'self' https://fonts.gstatic.com data:",
       // Relax inline/eval only in development; tighten in production
+      // In production, Next.js still emits a few inline scripts/styles (e.g., runtime/hydration shims).
+      // To avoid deploy-time CSP breaks, allow 'unsafe-inline'. If you want a stricter CSP later,
+      // replace this with a nonce-based policy generated per-response.
       isProd
-        ? "style-src 'self' https://fonts.googleapis.com"
+        ? "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"
         : "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       isProd
-        ? "script-src 'self' https://www.gstatic.com"
+        ? "script-src 'self' 'unsafe-inline' https://www.gstatic.com"
         : "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.gstatic.com",
       "frame-src 'self'",
       // ← ここが今回の本丸：ASCIIのみ・1行
