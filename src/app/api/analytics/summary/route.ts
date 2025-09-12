@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     const db = getAdminDb()
     const col = db.collection(`users/${uid}/quiz_attempts`)
     const snap = await col.orderBy('submittedAt', 'desc').limit(500).get()
-    const rows = snap.docs.map(d => ({ ...d.data(), submittedAt: d.get('submittedAt')?.toDate?.() }))
+    const rows = snap.docs.map(d => ({ ...(d.data() as any), submittedAt: d.get('submittedAt')?.toDate?.() })) as any[]
 
     // Aggregate last 7 days accuracy and daily counts
     const byDay: Record<string, { total: number; correct: number }> = {}
@@ -66,4 +66,3 @@ export async function GET(req: Request) {
     }, { headers: { 'Cache-Control': 'no-store' } })
   }
 }
-

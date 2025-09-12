@@ -47,6 +47,9 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
   const liveStrokesRef = useRef<Record<string, { color:string; size:number; points:{x:number;y:number}[] }>>({})
   const liveCursorsRef = useRef<Record<string, { x:number; y:number; color:string }>>({})
   const cursorTimerRef = useRef<any>(null)
+  const [messages, setMessages] = useState<{ id:string; userId:string; text:string; ts:number }[]>([])
+  const [chatText, setChatText] = useState('')
+  const [progress, setProgress] = useState<{ moduleId?: string; idx?: number }>({})
 
   // view transform (pan/zoom)
   const viewRef = useRef<{ scale:number; tx:number; ty:number }>({ scale: 1, tx: 0, ty: 0 })
@@ -150,6 +153,12 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
     if (unsubRef.current) { unsubRef.current(); unsubRef.current=null }
     unsubRef.current = subscribeRoomState(roomId, (s) => {
       try { setLocked(!!(s as any).boardLocked) } catch {}
+      try {
+        const msgs = (s as any).messages
+        if (Array.isArray(msgs)) setMessages(msgs.slice(-50))
+        const m = (s as any).moduleId; const q = (s as any).qIdx
+        setProgress({ moduleId: m, idx: typeof q === 'number' ? q : undefined })
+      } catch {}
       const b = (s && s.board) || null
       if (!b) return
       const rev = Number(b.rev ?? 0)
@@ -683,6 +692,25 @@ export function Whiteboard({ roomId }: { roomId?: string }) {
           <textarea autoFocus className="w-full outline-none" rows={3} value={noteEdit.value} onChange={(e)=>setNoteEdit({ ...noteEdit, value:e.target.value })} onKeyDown={(e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); commitNoteEdit() } if(e.key==='Escape'){ setNoteEdit(null) } }} onBlur={commitNoteEdit} />
         </div>
       )}
+
+      {/* Chat panel */}
+      <div className="absolute bottom-2 right-2 w-80 bg-white/95 rounded-lg shadow border text-slate-800">
+        <div className="px-3 py-2 border-b text-xs text-slate-600 flex items-center justify-between">
+          <div>チャット</div>
+          {progress?.moduleId && typeof progress.idx === 'number' && (
+            <div className="text-[10px] bg-slate-200 rounded px-1 py-0.5">{progress.moduleId} #{(progress.idx as number)+1}</div>
+          )}
+        </div>
+        <div className="max-h-40 overflow-y-auto px-3 py-2 space-y-1">
+          {messages.map(m => (
+            <div key={m.id} className={`text-sm ${m.userId===clientIdRef.current?'text-blue-700':'text-slate-800'}`}>{m.text}</div>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 p-2 border-t">
+          <input className="flex-1 border rounded px-2 py-1 text-sm" placeholder="メッセージを入力" value={chatText} onChange={(e)=>setChatText(e.target.value)} onKeyDown={(e)=>{ if(e.key==='Enter'){ e.preventDefault(); (async()=>{ if(roomId && chatText.trim()){ const t=chatText.trim(); setChatText(''); try{ await fetch(`/api/rooms/${roomId}/chat`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: clientIdRef.current||'me', text: t }) }) }catch{} } })() } }} />
+          <button className="text-sm px-2 py-1 bg-slate-800 text-white rounded" onClick={()=>{ (async()=>{ if(roomId && chatText.trim()){ const t=chatText.trim(); setChatText(''); try{ await fetch(`/api/rooms/${roomId}/chat`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: clientIdRef.current||'me', text: t }) }) }catch{} } })() }}>送信</button>
+        </div>
+      </div>
     </div>
   )
 

@@ -53,7 +53,7 @@ export const useLearnStore = create<LearnState & Actions>((set) => ({
   markResult: (isCorrect, mistake) => set((s) => ({
     correct: s.correct + (isCorrect ? 1 : 0),
     total: s.total + 1,
-    mistakes: !isCorrect && mistake ? [...s.mistakes, mistake] : s.mistakes,
+    mistakes: !isCorrect && mistake ? ([...(s.mistakes || []), mistake]) : (s.mistakes || []),
   })),
   setElapsedTime: (time) => set({ elapsedTime: time }),
 }))

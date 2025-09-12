@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { Clock } from 'lucide-react';
 import { startSession } from '@/lib/session';
+import { MODULES } from '@/lib/modules';
 
 export type Recommendation = {
   moduleId: string;
@@ -25,6 +26,8 @@ export function AiRecommendationCard({ recommendation }: AiRecommendationCardPro
     '応用': 'bg-red-600',
   };
 
+  const available = MODULES.some(m => m.id === moduleId)
+
   async function onStart() {
     try {
       const data = await startSession({ moduleId });
@@ -44,8 +47,8 @@ export function AiRecommendationCard({ recommendation }: AiRecommendationCardPro
         <Clock className="h-4 w-4 mr-1" />
         <span>{durationMinutes}分</span>
       </div>
-      <button onClick={onStart} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg mt-4">
-        開始
+      <button onClick={available ? onStart : undefined} disabled={!available} className={`w-full font-bold py-2 px-4 rounded-lg mt-4 ${available ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 cursor-not-allowed'}`}>
+        {available ? '開始' : '近日公開'}
       </button>
     </div>
   );

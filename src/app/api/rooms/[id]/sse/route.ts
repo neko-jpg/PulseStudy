@@ -32,6 +32,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const lastStrokeLen: Record<string, number> = {}
       const seenStrokes = new Set<string>()
       const lastCursorUpd: Record<string, number> = {}
+      let lastMsgLen = 0
+      let lastModule = ''
+      let lastQIdx = -1
 
       const iv = setInterval(() => {
         if (closed) return
@@ -77,6 +80,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
               sendEvent('board_patch', patch)
             }
           }
+          // emit quiz progress changes
+          if ((room as any).moduleId !== undefined || (room as any).qIdx !== undefined) {
+            const m = (room as any).moduleId || ''
+            const qi = Number((room as any).qIdx || 0)
+            if (m !== lastModule || qi !== lastQIdx) {
+              lastModule = m; lastQIdx = qi
+              sendEvent('progress', { moduleId: m, idx: qi })
+            }
+          }
+
           // live strokes deltas
           const current = room.live?.strokes || {}
           const flatten = (pts: { x:number; y:number }[]) => {
@@ -111,6 +124,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             const lu = lastCursorUpd[cid] || 0
             const cu = c?.updatedAt || 0
             if (cu > lu){ lastCursorUpd[cid] = cu; sendEvent('cursor', { clientId: cid, x: c.x, y: c.y, color: c.color }) }
+          }
+
+          // chat messages appended
+          const msgs = (room as any).messages || []
+          if (Array.isArray(msgs) && msgs.length > lastMsgLen) {
+            for (let i = lastMsgLen; i < msgs.length; i++) {
+              const m = msgs[i]
+              if (!m) continue
+              sendEvent('chat', { id: m.id, userId: m.userId, text: m.text, ts: m.ts })
+            }
+            lastMsgLen = msgs.length
           }
         } catch {
           // ignore

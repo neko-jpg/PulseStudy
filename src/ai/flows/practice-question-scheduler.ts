@@ -26,6 +26,12 @@ export async function schedulePracticeQuestions(input: SchedulePracticeQuestions
   return schedulePracticeQuestionsFlow(input);
 }
 
+export async function getReviewScheduleForUser(userId: string): Promise<SchedulePracticeQuestionsOutput> {
+  // Minimal hackathon-friendly behavior: prefer weak-subjects if provided in future
+  const preferred = ['math-quad-1']
+  return schedulePracticeQuestionsFlow({ timeOfDay: 'now', numQuestionsPerDay: 3, preferredSubjects: preferred })
+}
+
 const recommendQuestion = ai.defineTool({
   name: 'recommendQuestion',
   description: 'Recommends a practice question for a given subject, adapting to the user performance.',

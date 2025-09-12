@@ -21,7 +21,11 @@ export async function GET(request: Request) {
     return NextResponse.json(mock, { headers: { 'Cache-Control': 'no-store' } })
   }
 
-  const ref = doc(db, 'users', uid)
+  if (!db) {
+    // Firestore not configured; return mock immediately
+    return NextResponse.json(mock, { headers: { 'Cache-Control': 'no-store' } })
+  }
+  const ref = doc(db as any, 'users', uid)
   const snap = await getDoc(ref)
   if (!snap.exists()) {
     return NextResponse.json(mock, { headers: { 'Cache-Control': 'no-store' } })
@@ -39,6 +43,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing uid' }, { status: 400 })
   }
 
-  await setDoc(doc(db, 'users', uid), profile, { merge: true })
+  if (!db) {
+    return NextResponse.json({ ok: true, mock: true })
+  }
+  await setDoc(doc(db as any, 'users', uid), profile, { merge: true })
   return NextResponse.json({ ok: true })
 }

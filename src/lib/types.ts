@@ -27,6 +27,13 @@ export type LearnState = {
   correct: number
   total: number
   elapsedTime: number
+  mistakes?: Mistake[]
+}
+
+export type Mistake = {
+  question: string
+  selectedAnswer: string
+  correctAnswer: string
 }
 
 // Challenge types
@@ -63,6 +70,8 @@ export type RoomQuiz = {
 
 export type RoomSession = {
   id: string
+  name?: string
+  description?: string
   topic?: string
   members: RoomMember[]
   stamps: { like: number; ask: number; idea: number }
@@ -71,6 +80,7 @@ export type RoomSession = {
   solverId?: string
   hostId?: string
   privacy?: 'open' | 'approval'
+  isPublic?: boolean
   pendingControlRequests?: string[] // userIds
   pendingJoins?: RoomMember[]
   inviteTokens?: { token: string; exp: number }[]
@@ -82,6 +92,10 @@ export type RoomSession = {
   // Ops
   boardLocked?: boolean
   takeaways?: { ts: number; text: string; authorId?: string }[]
+  // Quiz sync + chat
+  moduleId?: string
+  qIdx?: number
+  messages?: { id: string; userId: string; text: string; ts: number }[]
 }
 
 // Whiteboard types

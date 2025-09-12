@@ -23,6 +23,8 @@ function ensureStore(): Map<string, RoomSession> {
 function seedRoom(id: string): RoomSession {
   return {
     id,
+    name: '公開デモルーム',
+    description: '誰でも入室できます',
     topic: 'コラボ学習ルーム',
     members: [{ id: 'user1', name: 'Alice' }],
     stamps: { like: 0, ask: 0, idea: 0 },
@@ -31,6 +33,7 @@ function seedRoom(id: string): RoomSession {
     board: { strokes: [], shapes: [], texts: [], notes: [], rev: 0 },
     live: { strokes: {}, cursors: {} },
     privacy: 'open',
+    isPublic: true,
   };
 }
 
@@ -40,6 +43,23 @@ export function getRoom(id: string): RoomSession | undefined {
       store.set(id, seedRoom(id));
   }
   return store.get(id);
+}
+
+export function listRooms(): RoomSession[] {
+  const store = ensureStore();
+  return Array.from(store.values());
+}
+
+export function createRoomEphemeral(input: { name?: string; description?: string; isPublic?: boolean }): { id: string } {
+  const id = `r-${Math.random().toString(36).slice(2, 8)}`
+  const room = seedRoom(id)
+  if (input?.name) room.name = input.name
+  if (input?.description) room.description = input.description
+  room.isPublic = input?.isPublic ?? true
+  room.topic = room.name || room.topic
+  const store = ensureStore()
+  store.set(id, room)
+  return { id }
 }
 
 export function approveJoin(roomId: string, userId: string): void {

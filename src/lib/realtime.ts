@@ -54,6 +54,8 @@ export function subscribeRoomState(roomId: string, onState: (s: any) => void, op
       const onLiveEnd = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); if (s.live?.strokes) delete s.live.strokes[js.id] }) }
       const onCursor = (ev: MessageEvent) => { apply((s)=>{ const js = JSON.parse(ev.data); s.live = s.live || { strokes: {}, cursors: {} }; s.live.cursors = s.live.cursors || {}; const col = (typeof js.color === 'string' && js.color) ? js.color : '#111827'; const x = Number.isFinite(js.x) ? js.x : 0; const y = Number.isFinite(js.y) ? js.y : 0; s.live.cursors[js.clientId] = { x, y, color: col, updatedAt: Date.now() } }) }
       const onMsg = (ev: MessageEvent) => { try { const js = JSON.parse(ev.data); onState(js) } catch {} }
+      const onProgress = (ev: MessageEvent) => { apply((s) => { try { const js = JSON.parse(ev.data); (s as any).moduleId = js.moduleId; (s as any).qIdx = js.idx } catch {} }) }
+      const onChat = (ev: MessageEvent) => { apply((s) => { try { const js = JSON.parse(ev.data); (s as any).messages = Array.isArray((s as any).messages) ? (s as any).messages : []; (s as any).messages.push({ id: js.id, userId: js.userId, text: js.text, ts: js.ts }) } catch {} }) }
       let fallbackUnsub: Unsubscribe | null = null
 
       const attach = () => {
@@ -67,6 +69,8 @@ export function subscribeRoomState(roomId: string, onState: (s: any) => void, op
         es.addEventListener('cursor', onCursor as any)
         es.addEventListener('board_patch', onBoardPatch as any)
         es.addEventListener('error', onError)
+        es.addEventListener('progress', onProgress as any)
+        es.addEventListener('chat', onChat as any)
       }
       const detach = () => {
         if (!es) return
@@ -79,6 +83,8 @@ export function subscribeRoomState(roomId: string, onState: (s: any) => void, op
         es.removeEventListener('cursor', onCursor as any)
         es.removeEventListener('board_patch', onBoardPatch as any)
         es.removeEventListener('error', onError)
+        es.removeEventListener('progress', onProgress as any)
+        es.removeEventListener('chat', onChat as any)
       }
       const onError = () => {
         if (closedByUser) return

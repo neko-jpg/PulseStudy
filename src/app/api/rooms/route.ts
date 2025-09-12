@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { z } from 'zod';
-import { auth } from 'firebase-admin';
+import { listRooms, createRoomEphemeral } from './state';
 
 // Note: In a real app, you'd get the user's UID from an auth session.
 // For now, we'll require it in the request body.
@@ -48,13 +48,30 @@ const createRoomSchema = z.object({
  */
 export async function GET() {
   try {
-    const q = collection(db, 'rooms'); // In a real app, you might query only public rooms
-    const querySnapshot = await getDocs(q);
-    const rooms = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    return NextResponse.json(rooms);
+    const useMem = !db || process.env.DEMO_MODE === '1'
+    if (useMem) {
+      // Optionally ensure a demo room exists
+      if (process.env.DEMO_MODE === '1') {
+        const { getRoom } = await import('./state')
+        // create a stable demo room id
+        getRoom('public-demo')
+      }
+      const rooms = listRooms().filter(r => r.isPublic !== false).map(r => ({
+        id: r.id,
+        name: r.name || r.topic || 'ルーム',
+        description: r.description || '',
+        members: r.members?.map(m => m.id) || [],
+        isPublic: r.isPublic !== false,
+      }))
+      return NextResponse.json(rooms, { headers: { 'Cache-Control': 'no-store' } })
+    }
+    const q = collection(db as any, 'rooms')
+    const querySnapshot = await getDocs(q as any)
+    const rooms = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }))
+    return NextResponse.json(rooms)
   } catch (error) {
-    console.error('Error fetching rooms:', error);
-    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    console.error('Error fetching rooms:', error)
+    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 })
   }
 }
 
@@ -63,33 +80,23 @@ export async function GET() {
  * Creates a new room in Firestore.
  */
 export async function POST(request: Request) {
-  const createdBy = await getUserIdFromRequest(request);
-  if (!createdBy) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    const json = await request.json();
-    // Do not allow user to set createdBy
-    const { createdBy: _, ...dataToParse } = json;
-    const data = createRoomSchema.parse(dataToParse);
-
-    const newRoomData = {
-      ...data,
-      createdBy, // Add the server-verified user ID
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      members: [createdBy], // Creator is the first member
-    };
-
-    const docRef = await addDoc(collection(db, 'rooms'), newRoomData);
-
-    return NextResponse.json({ id: docRef.id, ...newRoomData }, { status: 201 });
+    const json = await request.json().catch(() => ({}))
+    const data = createRoomSchema.parse(json)
+    const useMem = !db || process.env.DEMO_MODE === '1'
+    if (useMem) {
+      const { id } = createRoomEphemeral({ name: data.name, description: data.description, isPublic: data.isPublic })
+      return NextResponse.json({ id, name: data.name, isPublic: data.isPublic }, { status: 201 })
+    }
+    // Firestore path with naive auth-less create (hackathon-friendly)
+    const newRoomData = Object.assign({}, data as any, { createdAt: serverTimestamp(), updatedAt: serverTimestamp(), members: [] })
+    const docRef = await addDoc(collection(db as any, 'rooms') as any, newRoomData as any)
+    return NextResponse.json({ id: docRef.id, ...newRoomData }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ errors: error.errors }, { status: 400 });
+      return NextResponse.json({ errors: error.errors }, { status: 400 })
     }
-    console.error('Error creating room:', error);
-    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    console.error('Error creating room:', error)
+    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 })
   }
 }

@@ -10,7 +10,6 @@ import { FocusModal } from '@/components/dashboard/FocusModal'
 import './new-home.css'
 import { Skeleton } from '@/components/ui/skeleton'
 
-// Mock data for components that are not part of this task
 const MOCK_USER_NAME = '葵'
 const MOCK_HAS_NOTIFICATIONS = true
 
@@ -55,7 +54,6 @@ export default function HomePage() {
     async function fetchAllData() {
       setIsLoading(true)
       try {
-        // AI learning path
         const recResponse = await fetch('/api/ai/recommendations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -71,51 +69,23 @@ export default function HomePage() {
           taskUrl: '/learn-top',
         })
 
-        // AI review schedule
         const reviewResponse = await fetch('/api/ai/review-schedule')
         if (!reviewResponse.ok) throw new Error('Failed to fetch review schedule')
         const reviewData = await reviewResponse.json()
         const firstReviewSubject = reviewData.scheduledQuestions?.[0]?.subject || 'math-quad-1'
 
-        // Dynamic QuickStart items
         const dynamicQuickStartItems: QuickStartItem[] = [
-          {
-            iconName: 'history',
-            iconColorClass: 'text-blue-400',
-            title: '復習する',
-            badge: { text: 'AIのおすすめ', colorClass: 'bg-green-500' },
-            href: `/learn/${firstReviewSubject}/summary`,
-          },
-          {
-            iconName: 'school',
-            iconColorClass: 'text-orange-400',
-            title: '新しい単元へ',
-            href: '/learn-top',
-          },
-          {
-            iconName: 'quiz',
-            iconColorClass: 'text-purple-400',
-            title: 'テスト対策',
-            badge: { text: '人気', colorClass: 'bg-red-500' },
-            href: '/challenges/test-prep',
-          },
-          {
-            iconName: 'lightbulb',
-            iconColorClass: 'text-teal-400',
-            title: '苦手を克服',
-            href: `/learn/${firstReviewSubject}/summary`,
-          },
+          { iconName: 'history', iconColorClass: 'text-blue-400', title: '復習する', badge: { text: 'AIのおすすめ', colorClass: 'bg-green-500' }, href: `/learn/${firstReviewSubject}/summary` },
+          { iconName: 'school', iconColorClass: 'text-orange-400', title: '新しい単元へ', href: '/learn-top' },
+          { iconName: 'quiz', iconColorClass: 'text-purple-400', title: 'テスト対策', badge: { text: '人気', colorClass: 'bg-red-500' }, href: '/challenges/test-prep' },
+          { iconName: 'lightbulb', iconColorClass: 'text-teal-400', title: '苦手を克服', href: `/learn/${firstReviewSubject}/summary` },
         ]
         setQuickStartItems(dynamicQuickStartItems)
       } catch (error) {
         console.error(error)
-        setRecommendation({
-          aiCommand: 'AIからの提案の取得に失敗しました',
-          taskTitle: '新しい単元を学習する',
-          taskUrl: '/learn-top',
-        })
+        setRecommendation({ aiCommand: 'AIからの提案の取得に失敗しました', taskTitle: '新しい単元を学習する', taskUrl: '/learn-top' })
         setQuickStartItems([
-          { iconName: 'history', title: '復習する', href: '/learn/review', iconColorClass: 'text-blue-400' },
+          { iconName: 'history', title: '復習する', href: '/learn-top', iconColorClass: 'text-blue-400' },
           { iconName: 'school', title: '新しい単元へ', href: '/learn-top', iconColorClass: 'text-orange-400' },
         ])
       } finally {
@@ -129,7 +99,6 @@ export default function HomePage() {
   return (
     <div className="flex-1 p-8 overflow-y-auto bg-slate-900 text-white">
       <DashboardHeader userName={MOCK_USER_NAME} hasNotifications={MOCK_HAS_NOTIFICATIONS} />
-
       <div className="w-full max-w-4xl mx-auto flex flex-col items-center space-y-8">
         {isLoading || !recommendation ? (
           <Skeleton className="h-[150px] w-full rounded-xl" />
@@ -144,7 +113,6 @@ export default function HomePage() {
             taskUrl={recommendation.taskUrl}
           />
         )}
-
         <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
           <FocusGraph onClick={() => setFocusModalOpen(true)} />
           {quickStartItems.length > 0 ? (
@@ -153,12 +121,10 @@ export default function HomePage() {
             <Skeleton className="h-[200px] w-full rounded-xl" />
           )}
         </div>
-
         <div className="w-full">
           <ChallengesCarousel challenges={MOCK_CHALLENGES} />
         </div>
       </div>
-
       <FocusModal isOpen={isFocusModalOpen} onClose={() => setFocusModalOpen(false)} />
     </div>
   )

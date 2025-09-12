@@ -3,6 +3,7 @@ import type { ModuleDoc } from '@/lib/types'
 import { quadBasic } from '@/lib/banks/quad-basic'
 import { enIrregs } from '@/lib/banks/en-irregs'
 import { toApiId } from '@/lib/modules'
+import { generateQuizFlow } from '@/ai/flows/generate-quiz'
 
 // BANK source as a safe fallback
 const BANKS: Record<string, ModuleDoc> = {
@@ -18,9 +19,23 @@ export async function POST(req: Request) {
 
     const hasAiKey = !!process.env.GOOGLE_API_KEY
 
-    // For hackathon/demo reliability, use BANK always; if AI is wired,
-    // we could branch here to generate items dynamically.
-    const doc = BANKS[apiId] || quadBasic
+    let doc = BANKS[apiId] || quadBasic
+    if (hasAiKey) {
+      try {
+        const topicMap: Record<string, { topic: string; subject?: string }> = {
+          'quad-basic': { topic: '二次関数の基礎とグラフ', subject: '数学' },
+          'en-irregs': { topic: '英語の不規則動詞の基礎', subject: '英語' },
+        }
+        const meta = topicMap[apiId] || { topic: uiId }
+        const gen = await generateQuizFlow({ topic: meta.topic, id: apiId, subject: meta.subject })
+        // Validate minimal shape
+        if (gen?.items?.length >= 3) {
+          doc = gen as any
+        }
+      } catch {
+        // fall back to BANK below
+      }
+    }
     const out: ModuleDoc = {
       id: doc.id,
       title: doc.title,
@@ -36,4 +51,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'server_error' }, { status: 500 })
   }
 }
-

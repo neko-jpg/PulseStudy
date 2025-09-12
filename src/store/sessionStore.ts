@@ -162,8 +162,8 @@ const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   syncOfflineData: async () => {
-    const db = await getDb();
-    let cursor = await db.transaction('pending-sessions').store.openCursor();
+    const idb = await getDb();
+    let cursor = await idb.transaction('pending-sessions').store.openCursor();
     while(cursor) {
         const sessionId = cursor.key as string;
         const sessionData = cursor.value;
@@ -204,11 +204,9 @@ if (typeof window !== 'undefined') {
 }
 // --- End of Listeners ---
 
-useFocusStore.subscribe(
-  (state) => state.output.value,
-  (focusValue) => {
-    useSessionStore.getState()._updateFocus(focusValue);
-  }
-);
+;(useFocusStore as any).subscribe(
+  (state: any) => state.output.value,
+  (focusValue: number) => { useSessionStore.getState()._updateFocus(focusValue) }
+)
 
 export { useSessionStore };
